@@ -5,15 +5,16 @@ import torch
 import numpy as numpy
 import torch.utils.data as data
 
-from input.vocab import Vocab
-from input.glove import Glove
-from input.dataiter import *
-from input.datautils import *
-
-#from vocab import Vocab
-#from glove import Glove
-#from dataiter import *
-#from datautils import *
+try:
+	from input.vocab import Vocab
+	from input.glove import Glove
+	from input.dataiter import *
+	from input.datautils import *
+except:
+	from vocab import Vocab
+	from glove import Glove
+	from dataiter import *
+	from datautils import *
 
 
 #Modify it for test to disable captions list
@@ -54,7 +55,7 @@ class Dataset(data.Dataset):
 	def create(self, vocab):
 		for captionsfilepath, trainvideoidspath, framesfolderpath in self.files:
 			captions = json.load(open(captionsfilepath, 'r'))
-			trainvideoids = json.load(open(trainvideoidspath, 'r')) 
+			trainvideoids = json.load(open(trainvideoidspath, 'r'))
 			for videoid, captionslist in iterdatashallow(captions, trainvideoids):
 				imagefiles = [imagefile for imagefile in iterimages(framesfolderpath, videoid)]
 				if self.mode =='train':
@@ -98,7 +99,7 @@ class Dataset(data.Dataset):
 			padded_imageframes_batch, frame_sequence_lengths = get_padded_list_normal(imageframesbatch, self.ipad, tensor=True)
 
 			return padded_imageframes_batch, frame_sequence_lengths, videoidsbatch
-			   
+
 
 if __name__=='__main__':
 
@@ -106,7 +107,7 @@ if __name__=='__main__':
 	vocab.add_begend_vocab()
 	vocab.create()
 
-	dataset = Dataset([('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')])	
+	dataset = Dataset([('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')])
 	dataset.set_pad_indices(vocab)
 	dataset.create(vocab)
 
@@ -122,4 +123,3 @@ if __name__=='__main__':
 		dataset.collate_fn([dataset.__getitem__(0), dataset.__getitem__(27)])
 
 	print(inbatch)
-

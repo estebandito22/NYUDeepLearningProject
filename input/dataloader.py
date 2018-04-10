@@ -3,12 +3,14 @@ import os
 import torch
 import torch.utils.data as data
 
-#from input.vocab import Vocab
-#from input.glove import Glove
-#from input.dataset import Dataset
-from vocab import Vocab
-from glove import Glove
-from dataset import Dataset
+try:
+    from input.vocab import Vocab
+    from input.glove import Glove
+    from input.dataset import Dataset
+except:
+    from vocab import Vocab
+    from glove import Glove
+    from dataset import Dataset
 
 
 #train loader
@@ -31,6 +33,7 @@ def get_train_data(files, glove_file, glove_embdim, batch_size=1, shuffle=True):
 #validation loader
 def get_val_data(files, vocab, glove, batch_size=1):
     dataset = Dataset(files)
+    dataset.set_mode('test')
     dataset.set_pad_indices(vocab)
     dataset.create(vocab)
     dataset.add_glove_vecs(glove)
@@ -73,5 +76,3 @@ if __name__=='__main__':
     	print(batch[1])
     	print(batch[3])
     	print(batch[5])
-
-

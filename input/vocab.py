@@ -13,12 +13,12 @@ class Vocab():
 		self.files = files
 		self.word2index = {}
 		self.index2word = {}
-		
+
 		self.word_counter = Counter()
 
 	def add_begend_vocab(self):
 		self.index2word[len(self.word2index)] = '<eos>'
-		self.word2index['<eos>'] = len(self.word2index)		
+		self.word2index['<eos>'] = len(self.word2index)
 		self.index2word[len(self.word2index)] = '<bos>'
 		self.word2index['<bos>'] = len(self.word2index)
 		return
@@ -40,7 +40,7 @@ class Vocab():
 	def create(self):
 		for captionsfilepath, trainvideoidspath, _ in self.files:
 			captions = json.load(open(captionsfilepath, 'r'))
-			trainvideoids = json.load(open(trainvideoidspath, 'r')) 
+			trainvideoids = json.load(open(trainvideoidspath, 'r'))
 			for videoid, caption_tokens in iterdatadeep(captions, trainvideoids):
 				self.update_word_counter(caption_tokens)
 		self.create_vocab_map(self.word_counter, self.word2index, self.index2word)
@@ -52,7 +52,7 @@ class Vocab():
 			if token.lower() in self.word2index:
 				indices.append(self.word2index[token.lower()])
 			else:
-				raise		
+				raise
 		return indices
 
 	def get_index_words(self, indices):
@@ -69,4 +69,3 @@ if __name__ == '__main__':
 	vocab.add_begend_vocab()
 	vocab.create()
 	print(vocab.index2word)
-

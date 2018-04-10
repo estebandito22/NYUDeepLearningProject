@@ -11,13 +11,13 @@ import torch.optim as optim
 
 import input.dataloader as loader
 import layers.utils as utils
-from csal import CSAL 
+from csal import CSAL
 
 import evaluate as evaluator
 import test as tester
 
 USE_CUDA = False
-	 
+
 def train():
 	cur_dir = os.getcwd()
 	input_dir = 'input'
@@ -29,19 +29,20 @@ def train():
 	train_batch_size = 2
 	eval_batch_size = 1
 
-	file_names = [('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')]
+	print("Get train data...")
+	file_names = [('MSRVTT/captions.json', 'MSRVTT/trainvideo.json.sample', 'MSRVTT/Frames')]
 	files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	train_dataloader, vocab, glove, train_data_size = loader.get_train_data(files, glove_filepath, glove_embdim, train_batch_size)
 
-	file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
-	files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
-	val_dataloader = loader.get_val_data(files, vocab, glove, eval_batch_size)
-
+	# print("Get validation data...")
+	# file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json.sample', 'MSRVTT/Frames')]
+	# files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
+	# val_dataloader = loader.get_val_data(files, vocab, glove, eval_batch_size)
 
 	save_dir = 'models/baseline/'
 	save_dir_path = os.path.join(cur_dir, save_dir)
 	if not os.path.exists(save_dir_path):
-		os.makedirs(save_dir_path)	
+		os.makedirs(save_dir_path)
 
 	glovefile = open(os.path.join(save_dir, 'glove.pkl'), 'wb')
 	pickle.dump(glove, glovefile)
@@ -57,6 +58,8 @@ def train():
 					"word_embeddings" : pretrained_wordvecs,
 					"pretrained_embdim" : glove_embdim,
 					"vocabulary_size" : len(pretrained_wordvecs),
+					"vocabulary_bosindex": vocab.word2index["<bos>"],
+					"vocabulary_eosindex": vocab.word2index["<eos>"],
 					"decoder_rnn_hidden_dim" : glove_embdim,
 					"decoder_tie_weights" : True,
 					"decoder_rnn_type" : 'LSTM',
@@ -64,14 +67,15 @@ def train():
 				}
 	csal = CSAL(dict_args)
 
-	num_epochs = 4
-	learning_rate = 1.0
-	criterion = nn.NLLLoss(reduce = False)  
+	num_epochs = 2
+	learning_rate = 1
+	criterion = nn.NLLLoss(reduce = False)
 	optimizer = optim.Adadelta(filter(lambda p: p.requires_grad, csal.parameters()), lr=learning_rate, rho=0.9, eps=1e-06, weight_decay=0)
 	if USE_CUDA:
 		csal = csal.cuda()
 		criterion = criterion.cuda()
 
+	print("Start training...")
 	for epoch in range(num_epochs):
 
 		for i,batch in enumerate(train_dataloader):
@@ -113,21 +117,26 @@ def train():
 			loss.backward()
 			optimizer.step()
 
+			#######Report
 			if((i+1)%2 == 0):
-				print('Epoch: [{0}/{1}], Step: [{2}/{3}], Loss: {4}'.format( \
+				print('Epoch: [{0}/{1}], Step: [{2}/{3}], Test Loss: {4}'.format( \
 							epoch+1, num_epochs, i+1, train_data_size//train_batch_size, loss.data[0]))
-			
+
 				break
 
 		if(epoch%1 == 0): #After how many epochs
 			#Get Validation Loss to stop overriding
-			val_loss, bleu = evaluator.evaluate(val_dataloader, csal)
-			#print("val_loss")
+			# val_loss, bleu = evaluator.evaluate(val_dataloader, csal, vocab)
+			# print("Validation Loss: {}\tValidation Scores: {}".format(val_loss, bleu))
+			# bleu = evaluator.evaluate(val_dataloader, csal, vocab, epoch=epoch, returntype='Bleu')
+			# print("Validation Scores: {}".format(bleu))
 			#Early Stopping not required
+			if not os.path.isdir(os.path.join(save_dir, "epoch{}".format(epoch))):
+				os.makedirs(os.path.join(save_dir, "epoch{}".format(epoch)))
 			filename = 'csal' + '.pth'
-			file = open(os.path.join(save_dir, filename), 'wb')
+			file = open(os.path.join(save_dir, "epoch{}".format(epoch), filename), 'wb')
 			torch.save({'state_dict':csal.state_dict(), 'dict_args':dict_args}, file)
-			print('Saving the model to {}'.format(save_dir))
+			print('Saving the model to {}'.format(save_dir+"epoch{}".format(epoch)))
 			file.close()
 
 if __name__=='__main__':

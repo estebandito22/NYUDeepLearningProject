@@ -86,12 +86,11 @@ if __name__=='__main__':
 	clipfolderpath = os.path.join(cur_dir, datafolder, clipfolder)
 	framefolderpath = os.path.join(cur_dir, outputfolder, datafolder, framefolder)
 
-	#jsonfilename = "train_val_videodatainfo.json"
-	jsonfilename = "examp.json"
+	jsonfilename = "train_val_videodatainfo.json"
 	challenge = "msrvtt_2016"	
 	jsonfilepath = os.path.join(datafolderpath, jsonfilename)
 
-	'''trainvideo, valvideo, testvideo = \
+	trainvideo, valvideo, testvideo = \
 		processvideomsrvtt(jsonfilepath, videofolderpath, framefolderpath, clipfolderpath, challenge)
 
 	trainjson = os.path.join(cur_dir, outputfolder, datafolder, 'trainvideo.json')
@@ -104,7 +103,7 @@ if __name__=='__main__':
 
 	trainfile.write(json.dumps({'data':trainvideo})) 
 	valfile.write(json.dumps({'data':valvideo})) 
-	testfile.write(json.dumps({'data':testvideo}))'''
+	testfile.write(json.dumps({'data':testvideo}))
 
 	captionjson = os.path.join(cur_dir, outputfolder, datafolder, 'captions.json')
 	captionfile = open(captionjson, 'w')
