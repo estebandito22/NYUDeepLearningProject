@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import pickle
+import time
 
 import torch
 import torch.nn as nn
@@ -27,7 +28,7 @@ def train():
 	glove_embdim = 100
 	glove_filepath = os.path.join(glove_dir, glove_filename)
 
-	train_batch_size = 30
+	train_batch_size = 10
 	eval_batch_size = 1
 
 	print("Get train data...")
@@ -79,9 +80,11 @@ def train():
 
 	print("Start training...")
 	for epoch in range(num_epochs):
-
+		
+		start_time = time.time()
 		for i,batch in enumerate(train_dataloader):
 
+			load_time =  time.time()
 			#######Load Data
 			padded_imageframes_batch = Variable(torch.stack(batch[0])) #batch_size*num_frames*3*224*224
 			frame_sequence_lengths = Variable(torch.LongTensor(batch[1])) #batch_size
@@ -100,12 +103,14 @@ def train():
 				output_sequence_lengths = output_sequence_lengths.cuda()
 				captionwords_mask = captionwords_mask.cuda()
 
+			cuda_time = time.time()
 			#######Forward
 			csal = csal.train()
 			optimizer.zero_grad()
 			outputword_log_probabilities = csal(padded_imageframes_batch, frame_sequence_lengths, \
 												padded_inputwords_batch, input_sequence_lengths)
 
+			model_time = time.time()
 			#######Calculate Loss
 			outputword_log_probabilities = outputword_log_probabilities.permute(0, 2, 1)
 			#outputword_log_probabilities: batch_size*vocab_size*num_words
@@ -117,14 +122,20 @@ def train():
 			losses = losses.sum(1)/(output_sequence_lengths.float())
 			loss = losses.sum()/losses.size(0)
 	
+			loss_time = time.time()
 			#######Backward
 			loss.backward(retain_graph=False)
 			optimizer.step()
+
+			opt_time = time.time()
 			#######Report
 			if((i+1)%2 == 0):
 				print('Epoch: [{0}/{1}], Step: [{2}/{3}], Test Loss: {4}'.format( \
 							epoch+1, num_epochs, i+1, train_data_size//train_batch_size, loss.data[0]))
 
+			
+			print("Load : {0}, Cuda : {1}, Model : {2}, Loss : {3}, Opt : {4}".format(start_time-load_time, load_time - cuda_time, cuda_time - model_time, model_time - loss_time, loss_time-opt_time))
+			start_time = time.time()
 
 		if(epoch%1 == 0): #After how many epochs
 			#Get Validation Loss to stop overriding
