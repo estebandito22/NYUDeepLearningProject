@@ -11,12 +11,16 @@ class PreTrainedResnet(nn.Module):
 		super(PreTrainedResnet, self).__init__()
 
 		self.intermediate_layers = dict_args['intermediate_layers']
-		self.pretrained_model = models.resnet18(pretrained=True)
+		self.pretrained_model = models.resnet18(pretrained=True).eval()
+		if torch.cuda.is_available():
+			self.pretrained_model = self.pretrained_model.cuda()
+		for param in self.pretrained_model.parameters():
+			param.requires_grad = False
 
 	def forward(self, x):
 		intermediate_features = []
 		for name, module in self.pretrained_model._modules.items():
-			x = module(x).squeeze()
+			x = module(x).squeeze().contiguous()
 			if name in self.intermediate_layers:
 				intermediate_features += [x]
 		return intermediate_features

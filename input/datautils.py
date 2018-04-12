@@ -9,8 +9,8 @@ def imagetotensor(imagefile):
                                      std=[0.229, 0.224, 0.225])
 	image = Image.open(imagefile)
 	transform = transforms.Compose([
-        #transforms.Resize(256),
-        transforms.Scale(256),
+        transforms.Resize(256),
+        #transforms.Scale(256),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
         normalize,

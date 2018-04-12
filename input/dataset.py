@@ -22,7 +22,7 @@ except:
 class Dataset(data.Dataset):
 	def __init__(self, files):
 		self.files = files
-		self.data = [] #list of [frames, inputcaption, outputcaption]
+		self.data = [] #list of [frames, inputcaption, outputcaption, videoid]
 
 		self.size = 0
 		self.eos = 0
@@ -38,8 +38,7 @@ class Dataset(data.Dataset):
 	def __getitem__(self, index):
 		imagefiles = self.data[index][0]
 		imageframes = [imagetotensor(imagefile) for imagefile in imagefiles]
-		self.data[index][0] = imageframes
-		return self.data[index]
+		return [imageframes] + self.data[index][1:]
 
 	def set_pad_indices(self, vocab):
 		self.bos = vocab.word2index['<bos>']
@@ -78,6 +77,24 @@ class Dataset(data.Dataset):
 				if tensor: padded_sequence_list[index] = torch.stack(padded_sequence_list[index])
 			return padded_sequence_list, sequence_lengths
 
+		def get_padded_list_truncated(sequence_list, padding_value, trunc_length, tensor = False):
+			sequence_lengths = [len(sequence) for sequence in sequence_list]
+			num_sequences = len(sequence_list)
+			max_length = max(sequence_lengths)
+			if max_length <= trunc_length:
+				padded_sequence_list = [[padding_value for col in range(max_length)] for row in range(num_sequences)]
+			else:
+				padded_sequence_list = [[padding_value for col in range(trunc_length)] for row in range(num_sequences)]
+			for index, sequence in enumerate(sequence_list):
+				if sequence_lengths[index] <= trunc_length:
+					padded_sequence_list[index][:sequence_lengths[index]] = sequence
+				else:
+					padded_sequence_list[index][:trunc_length] = sequence[:trunc_length]
+					sequence_lengths[index] = trunc_length
+				if tensor: padded_sequence_list[index] = torch.stack(padded_sequence_list[index])
+			return padded_sequence_list, sequence_lengths
+
+
 		def replace_indices_with_vecs(sequence_list):
 			return [self.glove.get_index_vectors(sequence) for sequence in sequence_list]
 
@@ -88,7 +105,7 @@ class Dataset(data.Dataset):
 			#padded_inputwordsvecs_batch = replace_indices_with_vecs(padded_inputwords_batch)
 			#padded_outputwordsvecs_batch = replace_indices_with_vecs(padded_outputwords_batch)
 
-			padded_imageframes_batch, frame_sequence_lengths = get_padded_list_normal(imageframesbatch, self.ipad, tensor=True)
+			padded_imageframes_batch, frame_sequence_lengths = get_padded_list_truncated(imageframesbatch, self.ipad, 60, tensor=True)
 
 			return padded_imageframes_batch, frame_sequence_lengths, \
 			   		padded_inputwords_batch, input_sequence_lengths, \
@@ -96,7 +113,7 @@ class Dataset(data.Dataset):
 
 		else:
 			imageframesbatch, videoidsbatch = zip(*mini_batch)
-			padded_imageframes_batch, frame_sequence_lengths = get_padded_list_normal(imageframesbatch, self.ipad, tensor=True)
+			padded_imageframes_batch, frame_sequence_lengths = get_padded_list_truncated(imageframesbatch, self.ipad, 60, tensor=True)
 
 			return padded_imageframes_batch, frame_sequence_lengths, videoidsbatch
 
@@ -122,4 +139,4 @@ if __name__=='__main__':
 	ibatch, ilens, inbatch, inlens, obatch, olens, videoids = \
 		dataset.collate_fn([dataset.__getitem__(0), dataset.__getitem__(27)])
 
-	print(inbatch)
+	print(ilens)

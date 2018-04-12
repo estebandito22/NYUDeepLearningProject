@@ -40,8 +40,9 @@ class SentenceDecoder(nn.Module):
 		self.linear = nn.Linear(self.hidden_dim, self.vocab_size)
 		if self.tie_weights:
 			self.linear.weight = self.word_embeddings
-
-		self.pretrained_words_layer = PretrainedEmbeddings(self.pretrained_words_layer_args)
+			print(self.linear.weight.requires_grad)
+		#Directly pass the instantiation of the embeddings layer?
+		#self.pretrained_words_layer = PretrainedEmbeddings(self.pretrained_words_layer_args)
 
 
 	def init_hidden(self, batch_size):

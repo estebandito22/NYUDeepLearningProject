@@ -18,10 +18,12 @@ def unsort_batch(batch, original_indices):
 	#inputs: batch_size*_	
 	return batch[original_indices]
 
-def sequence_mask(lengths):
+def sequence_mask(lengths, max_len=-1):
 	#lengths: batch_size
 	batch_size = lengths.size(0)
-	mask = lengths.data.new(batch_size, lengths.data.max()).zero_().long()
+	if max_len == -1:
+		max_len = lengths.data.max()
+	mask = lengths.data.new(batch_size, max_len).zero_().long()
 	for i in range(batch_size):
 		mask[i][:lengths.data[i]] = 1
 	return mask #batch_size*seq_len #Convert to a Variable?

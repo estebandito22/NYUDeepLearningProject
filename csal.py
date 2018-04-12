@@ -65,7 +65,8 @@ class CSAL(nn.Module):
 		#inputwords : batch_size*num_words
 		#outputwords : batch_size*num_words
 		#captionwords_lengths : batch_size
-
+		#videoframes = videoframes[:,0:videoframes_lengths.max().data.int()]
+		
 		videoframes_mask = Variable(utils.sequence_mask(videoframes_lengths))
 		#videoframes_mask: batch_size*num_frames
 
@@ -74,7 +75,7 @@ class CSAL(nn.Module):
 		#captionwords_mask: batch_size*num_words
 
 		batch_size, num_frames, rgb, height, width = videoframes.size()
-		videoframes = videoframes.view(-1,rgb,height,width)
+		videoframes = videoframes.view(-1,rgb,height,width).contiguous()
 		#videoframes : batch_size.num_frames*3*224*224
 		videoframefeatures = self.pretrained_vision_layer(videoframes)
 		videoframefeatures_fc = videoframefeatures[1]
