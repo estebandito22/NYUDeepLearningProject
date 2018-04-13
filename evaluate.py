@@ -75,7 +75,7 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 		stringcaptions += [_caption(indexcaption, video_ids_list[0], vocab)]
 
 	#######Write predicted captions
-	with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, predcaptionsjson), 'w') as predsout:
+	with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, predcaptionsjson), 'w') as predsout:
 		json.dump(stringcaptions, predsout)
 
 	#for Variables use volatile=True
@@ -145,6 +145,15 @@ if __name__=="__main__":
 		print("Loading previously trained model...")
 		checkpoint = torch.load(model_filepath)
 		model = CSAL(checkpoint['dict_args'])
+
+		if not 'sentence_decoder_layer.pretrained_words_layer.embeddings.weight' \
+			in checkpoint['state_dict']:
+
+			pretrained_words_layer_args = dict_args
+			pretrained_words_layer = PretrainedEmbeddings(pretrained_words_layer_args)
+			checkpoint['state_dict']['sentence_decoder_layer.pretrained_words_layer.embeddings.weight'] \
+				= pretrained_words_layer.embeddings.weight
+
 		model.load_state_dict(checkpoint['state_dict'])
 
 		glovefile = open(glove_filepath, 'rb')
@@ -156,7 +165,7 @@ if __name__=="__main__":
 		vocabfile.close()
 
 		print("Get validation data...")
-		file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
+		file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json.sample', 'MSRVTT/Frames')]
 		files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 		val_dataloader = loader.get_val_data(files, vocab, glove, EVAL_BATCH_SIZE)
 
