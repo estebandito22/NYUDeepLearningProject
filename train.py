@@ -19,6 +19,8 @@ import test as tester
 
 if torch.cuda.is_available():
 	USE_CUDA = True
+else:
+	USE_CUDA = False
 
 def train():
 	cur_dir = os.getcwd()
@@ -41,7 +43,8 @@ def train():
 	# files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	# val_dataloader = loader.get_val_data(files, vocab, glove, eval_batch_size)
 
-	save_dir = 'models/baseline1/'
+	modelname = 'baseline1'
+	save_dir = 'models/{}/'.format(modelname)
 	save_dir_path = os.path.join(cur_dir, save_dir)
 	if not os.path.exists(save_dir_path):
 		os.makedirs(save_dir_path)
@@ -80,7 +83,7 @@ def train():
 
 	print("Start training...")
 	for epoch in range(num_epochs):
-		
+
 		start_time = time.time()
 		for i,batch in enumerate(train_dataloader):
 
@@ -121,7 +124,7 @@ def train():
 			#Divide by batch size and num_words
 			losses = losses.sum(1)/(output_sequence_lengths.float())
 			loss = losses.sum()/losses.size(0)
-	
+
 			loss_time = time.time()
 			#######Backward
 			loss.backward(retain_graph=False)
@@ -133,7 +136,7 @@ def train():
 				print('Epoch: [{0}/{1}], Step: [{2}/{3}], Test Loss: {4}'.format( \
 							epoch+1, num_epochs, i+1, train_data_size//train_batch_size, loss.data[0]))
 
-			
+
 			print("Load : {0}, Cuda : {1}, Model : {2}, Loss : {3}, Opt : {4}".format(start_time-load_time, load_time - cuda_time, cuda_time - model_time, model_time - loss_time, loss_time-opt_time))
 			start_time = time.time()
 
@@ -141,7 +144,7 @@ def train():
 			#Get Validation Loss to stop overriding
 			# val_loss, bleu = evaluator.evaluate(val_dataloader, csal, vocab)
 			# print("Validation Loss: {}\tValidation Scores: {}".format(val_loss, bleu))
-			# bleu = evaluator.evaluate(val_dataloader, csal, vocab, epoch=epoch, returntype='Bleu')
+			# bleu = evaluator.evaluate(val_dataloader, csal, vocab, epoch=epoch, model_name = modelname, returntype='Bleu')
 			# print("Validation Scores: {}".format(bleu))
 			#Early Stopping not required
 			if not os.path.isdir(os.path.join(save_dir, "epoch{}".format(epoch))):

@@ -54,7 +54,7 @@ class CSAL(nn.Module):
 										'vocabulary_eosindex': self.vocabulary_eosindex,
 										'tie_weights' : True,
 										'word_embeddings' : self.pretrained_words_layer.embeddings.weight,
-										'pretrained_words_layer_args': pretrained_words_layer_args
+										'pretrained_words_layer': self.pretrained_words_layer
 									  }
 		self.sentence_decoder_layer = SentenceDecoder(sentence_decoder_layer_args)
 
@@ -66,7 +66,7 @@ class CSAL(nn.Module):
 		#outputwords : batch_size*num_words
 		#captionwords_lengths : batch_size
 		#videoframes = videoframes[:,0:videoframes_lengths.max().data.int()]
-		
+
 		videoframes_mask = Variable(utils.sequence_mask(videoframes_lengths))
 		#videoframes_mask: batch_size*num_frames
 

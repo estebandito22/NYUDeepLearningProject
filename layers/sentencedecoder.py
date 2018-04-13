@@ -18,7 +18,7 @@ class SentenceDecoder(nn.Module):
 	def __init__(self, dict_args):
 		super(SentenceDecoder, self).__init__()
 
-		self.pretrained_words_layer_args = dict_args['pretrained_words_layer_args']
+		self.pretrained_words_layer = dict_args['pretrained_words_layer']
 		self.input_dim = dict_args['input_dim']
 		self.hidden_dim = dict_args['rnn_hdim']
 		self.rnn_type = dict_args['rnn_type']
@@ -41,8 +41,6 @@ class SentenceDecoder(nn.Module):
 		if self.tie_weights:
 			self.linear.weight = self.word_embeddings
 			print(self.linear.weight.requires_grad)
-		#Directly pass the instantiation of the embeddings layer?
-		#self.pretrained_words_layer = PretrainedEmbeddings(self.pretrained_words_layer_args)
 
 
 	def init_hidden(self, batch_size):

@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import pickle
+import argparse
 
 import torch
 import torch.nn as nn
@@ -16,21 +17,24 @@ from csal import CSAL
 from evaluators.pycocotools.coco_video import COCO
 from evaluators.pycocoevalcap.eval import COCOEvalCap
 
-USE_CUDA = False
-
 def _caption(hyp, videoid, vocab):
 	generatedstring = ' '.join([str(vocab.index2word[index.data[0]]) for index in hyp])
 	string_hyp = {'videoid': str(videoid), 'captions': [generatedstring]}
 	return string_hyp
 
-def evaluate(dataloader, model, vocab, epoch, returntype = 'ALL'):
+def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
+
+	if torch.cuda.is_available():
+		USE_CUDA = True
+	else:
+		USE_CUDA = False
 
 	cur_dir = os.getcwd()
 	input_dir = 'input'
 	output_dir = 'output'
 	MSRVTT_dir = 'MSRVTT'
-	predcaptionsjson = 'epoch{}_baseline_predcaptions.json'.format(epoch)
-	valscoresjson = 'epoch{}_baseline_val_scores.json'.format(epoch)
+	predcaptionsjson = 'epoch{}_predcaptions.json'.format(epoch)
+	valscoresjson = 'val_scores.json'
 
 	stringcaptions = []
 
@@ -84,7 +88,9 @@ def evaluate(dataloader, model, vocab, epoch, returntype = 'ALL'):
 		cocoEval = COCOEvalCap(coco, cocopreds)
 		cocoEval.evaluate()
 		scores = ["{}: {:0.4f}".format(metric, score) for metric, score in cocoEval.eval.items()]
-		with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, valscoresjson), 'w') as scoresout:
+		if not os.path.isdir(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name)):
+			os.makedirs(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name))
+		with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, valscoresjson), 'w') as scoresout:
 			json.dump(scores, scoresout)
 		if returntype == 'Bleu':
 			return scores
@@ -94,16 +100,75 @@ def evaluate(dataloader, model, vocab, epoch, returntype = 'ALL'):
 
 if __name__=="__main__":
 
+	"""
+	Usage: Example of command to use the previously trained model "baseline1"
+	from "epoch0" to generate predictions and evaluate on validaition.
+
+	python evaluate.py -p -m baseline1 -e epoch0
+	"""
+
+	ap = argparse.ArgumentParser()
+	ap.add_argument("-p", "--predict", action="store_true", default=False,
+		required=False, help="Flag to load a pretrained model and predict.")
+	ap.add_argument("-s", "--batch_size", default=1, required=False,
+		help="If predict is True, the batch size to use during predictions.")
+	ap.add_argument("-m", "--saved_model_dir", required=False,
+		help="If predict True, the directory of the model you wish to load.")
+	ap.add_argument("-e", "--saved_model_epoch", required=False,
+		help="If predict True, the epoch you want to load e.g. 'epoch0'.")
+	args = vars(ap.parse_args())
+
+	PREDICT = args['predict']
+	EVAL_BATCH_SIZE = int(args['batch_size'])
+	EPOCH = int(args['saved_model_epoch'][-1])
+
 	cur_dir = os.getcwd()
 	input_dir = 'input'
 	output_dir = 'output'
 	MSRVTT_dir = 'MSRVTT'
-	pred_captionsjson = 'predcaptions.json'
-
+	models_dir = 'models'
+	saved_model_dir = args['saved_model_dir']
+	epoch_dir = args['saved_model_epoch']
+	csalfile = 'csal.pth'
+	glovefile = 'glove.pkl'
+	vocabfile = 'vocab.pkl'
 	captionsjson = 'captions.json'
-	captionsfile = os.path.join(cur_dir, input_dir, MSRVTT_dir, captionsjson)
-	predsfile = os.path.join(cur_dir, output_dir, MSRVTT_dir, predcaptionsjson)
-	coco = COCO(captionsfile)
-	cocopreds = coco.loadRes(predsfile)
-	cocoEval = COCOEvalCap(coco, cocopreds)
-	cocoEval.evaluate()
+	predcaptionsjson = 'epoch{}_predcaptions.json'.format(epoch_dir)
+	glove_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, glovefile)
+	vocab_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, vocabfile)
+	model_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, epoch_dir, csalfile)
+	captions_filepath = os.path.join(cur_dir, input_dir, MSRVTT_dir, captionsjson)
+	preds_filepath = os.path.join(cur_dir, output_dir, MSRVTT_dir, saved_model_dir, predcaptionsjson)
+
+	if PREDICT == True:
+
+		print("Loading previously trained model...")
+		checkpoint = torch.load(model_filepath)
+		model = CSAL(checkpoint['dict_args'])
+		model.load_state_dict(checkpoint['state_dict'])
+
+		glovefile = open(glove_filepath, 'rb')
+		glove = pickle.load(glovefile)
+		glovefile.close()
+
+		vocabfile = open(vocab_filepath, 'rb')
+		vocab = pickle.load(vocabfile)
+		vocabfile.close()
+
+		print("Get validation data...")
+		file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
+		files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
+		val_dataloader = loader.get_val_data(files, vocab, glove, EVAL_BATCH_SIZE)
+
+		#Get Validation Loss to stop overriding
+		# val_loss, bleu = evaluator.evaluate(val_dataloader, csal, vocab)
+		# print("Validation Loss: {}\tValidation Scores: {}".format(val_loss, bleu))
+		bleu = evaluate(val_dataloader, model, vocab, epoch=EPOCH, model_name=saved_model_dir, returntype='Bleu')
+		print("Validation Scores: {}".format(bleu))
+
+	else:
+
+		coco = COCO(captions_filepath)
+		cocopreds = coco.loadRes(preds_filepath)
+		cocoEval = COCOEvalCap(coco, cocopreds)
+		cocoEval.evaluate()
