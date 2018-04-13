@@ -17,17 +17,23 @@ from csal import CSAL
 from evaluators.pycocotools.coco_video import COCO
 from evaluators.pycocoevalcap.eval import COCOEvalCap
 
+try:
+	from layers.wordspretrained import PretrainedEmbeddings
+except:
+	from wordspretrained import PretrainedEmbeddings
+
+
+if torch.cuda.is_available():
+	USE_CUDA = True
+else:
+	USE_CUDA = False
+
 def _caption(hyp, videoid, vocab):
 	generatedstring = ' '.join([str(vocab.index2word[index.data[0]]) for index in hyp])
 	string_hyp = {'videoid': str(videoid), 'captions': [generatedstring]}
 	return string_hyp
 
 def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
-
-	if torch.cuda.is_available():
-		USE_CUDA = True
-	else:
-		USE_CUDA = False
 
 	cur_dir = os.getcwd()
 	input_dir = 'input'
@@ -145,11 +151,12 @@ if __name__=="__main__":
 		print("Loading previously trained model...")
 		checkpoint = torch.load(model_filepath)
 		model = CSAL(checkpoint['dict_args'])
+		if USE_CUDA == True:
+			model.cuda()
 
 		if not 'sentence_decoder_layer.pretrained_words_layer.embeddings.weight' \
 			in checkpoint['state_dict']:
 
-			pretrained_words_layer_args = dict_args
 			pretrained_words_layer = PretrainedEmbeddings(pretrained_words_layer_args)
 			checkpoint['state_dict']['sentence_decoder_layer.pretrained_words_layer.embeddings.weight'] \
 				= pretrained_words_layer.embeddings.weight
