@@ -54,14 +54,16 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 		#######Load Data
 		padded_imageframes_batch = Variable(torch.stack(batch[0]), volatile=True) #batch_size*num_frames*3*224*224
 		frame_sequence_lengths = Variable(torch.LongTensor(batch[1]), volatile=True) #batch_size
-		padded_inputwords_batch = Variable(torch.LongTensor([[vocab.word2index['<bos>']]]), volatile=True)
-		dummy_input_sequence_lengths = Variable(torch.LongTensor([[0]]), volatile=True)
+		padded_inputwords_batch = Variable(torch.LongTensor([[vocab.word2index['<bos>']]]), volatile=True) #batch_size*num_words
+		dummy_input_sequence_lengths = Variable(torch.LongTensor([[0]]), volatile=True) #batch_size
 		# padded_outputwords_batch = Variable(torch.LongTensor(batch[2])) #batch_size*num_words
 		# output_sequence_lengths = Variable(torch.LongTensor(batch[3])) #batch_size
 		video_ids_list = batch[2]
 		if USE_CUDA:
 			padded_imageframes_batch = padded_imageframes_batch.cuda()
 			frame_sequence_lengths = frame_sequence_lengths.cuda()
+			padded_inputwords_batch = padded_inputwords_batch.cuda()
+			dummy_input_sequence_lengths = dummy_input_sequence_lengths.cuda()
 
 		#######Forward
 		model.eval()
@@ -81,6 +83,8 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 		stringcaptions += [_caption(indexcaption, video_ids_list[0], vocab)]
 
 	#######Write predicted captions
+	if not os.path.isdir(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name)):
+		os.makedirs(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name))
 	with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, predcaptionsjson), 'w') as predsout:
 		json.dump(stringcaptions, predsout)
 
@@ -94,8 +98,6 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 		cocoEval = COCOEvalCap(coco, cocopreds)
 		cocoEval.evaluate()
 		scores = ["{}: {:0.4f}".format(metric, score) for metric, score in cocoEval.eval.items()]
-		if not os.path.isdir(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name)):
-			os.makedirs(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name))
 		with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, valscoresjson), 'w') as scoresout:
 			json.dump(scores, scoresout)
 		if returntype == 'Bleu':
@@ -149,15 +151,17 @@ if __name__=="__main__":
 	if PREDICT == True:
 
 		print("Loading previously trained model...")
-		checkpoint = torch.load(model_filepath)
+		if USE_CUDA == False:
+			MAP = 'cpu'
+		else:
+			MAP = 'gpu'
+		checkpoint = torch.load(model_filepath, map_location=MAP)
 		model = CSAL(checkpoint['dict_args'])
-		if USE_CUDA == True:
-			model.cuda()
 
 		if not 'sentence_decoder_layer.pretrained_words_layer.embeddings.weight' \
 			in checkpoint['state_dict']:
 
-			pretrained_words_layer = PretrainedEmbeddings(pretrained_words_layer_args)
+			pretrained_words_layer = model.pretrained_words_layer
 			checkpoint['state_dict']['sentence_decoder_layer.pretrained_words_layer.embeddings.weight'] \
 				= pretrained_words_layer.embeddings.weight
 
@@ -172,7 +176,7 @@ if __name__=="__main__":
 		vocabfile.close()
 
 		print("Get validation data...")
-		file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json.sample', 'MSRVTT/Frames')]
+		file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
 		files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 		val_dataloader = loader.get_val_data(files, vocab, glove, EVAL_BATCH_SIZE)
 
