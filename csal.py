@@ -65,7 +65,8 @@ class CSAL(nn.Module):
 		#inputwords : batch_size*num_words
 		#outputwords : batch_size*num_words
 		#captionwords_lengths : batch_size
-		#videoframes = videoframes[:,0:videoframes_lengths.max().data.int()]
+		
+		videoframes = videoframes[:,0:videoframes_lengths.data.max()].contiguous()
 
 		videoframes_mask = Variable(utils.sequence_mask(videoframes_lengths))
 		#videoframes_mask: batch_size*num_frames

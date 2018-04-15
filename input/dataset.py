@@ -8,11 +8,13 @@ import torch.utils.data as data
 try:
 	from input.vocab import Vocab
 	from input.glove import Glove
+	from input.pixel import Pixel
 	from input.dataiter import *
 	from input.datautils import *
 except:
 	from vocab import Vocab
 	from glove import Glove
+	from pixel import Pixel
 	from dataiter import *
 	from datautils import *
 
@@ -22,7 +24,7 @@ except:
 class Dataset(data.Dataset):
 	def __init__(self, files):
 		self.files = files
-		self.data = [] #list of [frames, inputcaption, outputcaption, videoid]
+		self.data = [] #list of [videoid, inputcaption, outputcaption]
 
 		self.size = 0
 		self.eos = 0
@@ -30,40 +32,64 @@ class Dataset(data.Dataset):
 		self.ipad = 0
 
 		self.glove = None
+		self.pixel = None
 		self.mode = 'train'
+		self.pretrained = False
+		self.data_parallel = False
+		self.frame_trunc_length = 45
 
 	def __len__(self):
 		return self.size
 
 	def __getitem__(self, index):
+		if self.pretrained:
+			videoid = self.data[index][0]
+			imageframes = self.pixel.get_pixel_vectors(videoid)
+			return [imageframes] + self.data[index][1:] + [videoid]
 		imagefiles = self.data[index][0]
 		imageframes = [imagetotensor(imagefile) for imagefile in imagefiles]
 		return [imageframes] + self.data[index][1:]
-
+		
 	def set_pad_indices(self, vocab):
 		self.bos = vocab.word2index['<bos>']
 		self.eos = vocab.word2index['<eos>']
 		self.ipad = torch.zeros([3,224,224]) #create zero tensor based on the resize value from dataiter
 
+	def add_video_vecs(self, pixel):
+		self.pretrained = True
+		self.pixel = pixel
+
 	def add_glove_vecs(self, glove):
 		self.glove = glove
 
-	def set_mode(self, mode):
+	#def set_mode(self, mode):
+		#self.mode = mode
+
+	def set_flags(self, mode='train', data_parallel=False, frame_trunc_length=45):
 		self.mode = mode
+		self.data_parallel = data_parallel
+		self.frame_trunc_length = frame_trunc_length
 
 	def create(self, vocab):
 		for captionsfilepath, trainvideoidspath, framesfolderpath in self.files:
 			captions = json.load(open(captionsfilepath, 'r'))
 			trainvideoids = json.load(open(trainvideoidspath, 'r'))
 			for videoid, captionslist in iterdatashallow(captions, trainvideoids):
-				imagefiles = [imagefile for imagefile in iterimages(framesfolderpath, videoid)]
+				if not self.pretrained:
+					imagefiles = [imagefile for imagefile in iterimages(framesfolderpath, videoid)]
 				if self.mode =='train':
 					for caption in captionslist:
 						inputcaptionwords = [self.bos] + vocab.get_word_indices(caption)
 						outputcaptionwords = vocab.get_word_indices(caption) + [self.eos]
-						self.data.append([imagefiles, inputcaptionwords, outputcaptionwords, videoid])
+						if not self.pretrained:
+							self.data.append([imagefiles, inputcaptionwords, outputcaptionwords, videoid])
+						else:
+							self.data.append([videoid, inputcaptionwords, outputcaptionwords])
 				else:
-					self.data.append([imagefiles, videoid])
+					if not self.pretrained:
+						self.data.append([imagefiles, videoid])
+					else:
+						self.data.append([videoid])
 		self.size = len(self.data)
 
 	def collate_fn(self, mini_batch):
@@ -77,10 +103,12 @@ class Dataset(data.Dataset):
 				if tensor: padded_sequence_list[index] = torch.stack(padded_sequence_list[index])
 			return padded_sequence_list, sequence_lengths
 
-		def get_padded_list_truncated(sequence_list, padding_value, trunc_length, tensor = False):
+		def get_padded_list_truncated(sequence_list, padding_value, trunc_length, tensor = False, strict=False):
 			sequence_lengths = [len(sequence) for sequence in sequence_list]
 			num_sequences = len(sequence_list)
 			max_length = max(sequence_lengths)
+			if strict == True:
+				max_length = trunc_length
 			if max_length <= trunc_length:
 				padded_sequence_list = [[padding_value for col in range(max_length)] for row in range(num_sequences)]
 			else:
@@ -105,7 +133,7 @@ class Dataset(data.Dataset):
 			#padded_inputwordsvecs_batch = replace_indices_with_vecs(padded_inputwords_batch)
 			#padded_outputwordsvecs_batch = replace_indices_with_vecs(padded_outputwords_batch)
 
-			padded_imageframes_batch, frame_sequence_lengths = get_padded_list_truncated(imageframesbatch, self.ipad, 60, tensor=True)
+			padded_imageframes_batch, frame_sequence_lengths = get_padded_list_truncated(imageframesbatch, self.ipad, self.frame_trunc_length, tensor=True, strict=self.data_parallel)
 
 			return padded_imageframes_batch, frame_sequence_lengths, \
 			   		padded_inputwords_batch, input_sequence_lengths, \
@@ -113,14 +141,14 @@ class Dataset(data.Dataset):
 
 		else:
 			imageframesbatch, videoidsbatch = zip(*mini_batch)
-			padded_imageframes_batch, frame_sequence_lengths = get_padded_list_truncated(imageframesbatch, self.ipad, 60, tensor=True)
+			padded_imageframes_batch, frame_sequence_lengths = get_padded_list_truncated(imageframesbatch, self.ipad, self.frame_trunc_length, tensor=True, strict=self.data_parallel)
 
 			return padded_imageframes_batch, frame_sequence_lengths, videoidsbatch
 
 
 if __name__=='__main__':
 
-	vocab = Vocab([('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'Dummy')])
+	vocab = Vocab([('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')])
 	vocab.add_begend_vocab()
 	vocab.create()
 
@@ -136,7 +164,11 @@ if __name__=='__main__':
 	glove.create(vocab)
 	dataset.add_glove_vecs(glove)
 
+	pixel = Pixel([('Dummy', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')])
+	pixel.create()
+	dataset.add_video_vecs(pixel)
+
 	ibatch, ilens, inbatch, inlens, obatch, olens, videoids = \
 		dataset.collate_fn([dataset.__getitem__(0), dataset.__getitem__(27)])
 
-	print(ilens)
+	print(ibatch)
