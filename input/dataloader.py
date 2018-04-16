@@ -16,7 +16,7 @@ except:
     from pixel import Pixel
 
 #train loader
-def get_train_data(files, glove_file, glove_embdim, batch_size=1, shuffle=True, num_workers=0, pretrained=False, data_parallel= True, frame_trunc_length=45):
+def get_train_data(files, pklpath, glove_file, glove_embdim, batch_size=1, shuffle=True, num_workers=0, pretrained=False, pklexist=False, data_parallel= True, frame_trunc_length=45):
     
     start_time = time.time()
     vocab = Vocab(files)
@@ -29,12 +29,15 @@ def get_train_data(files, glove_file, glove_embdim, batch_size=1, shuffle=True, 
     glove_time = time.time()
 
     if pretrained:
-        pixel = Pixel(files)
-        pixel.create()
+        pixel = Pixel(files, pklpath)
+        if not pklexist:
+            pixel.create()
+            pixel.save()
+        else: pixel.load()		
     pixel_time = time.time()
 
     dataset = Dataset(files)
-    dataset.set_flags(mode='train', data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
+    dataset.set_flags(mode='train', data_parallel=data_parallel, frame_trunc_length=frame_trunc_length, pretrained=pretrained)
     dataset.set_pad_indices(vocab)
     dataset.create(vocab)
     dataset.add_glove_vecs(glove)
@@ -46,14 +49,17 @@ def get_train_data(files, glove_file, glove_embdim, batch_size=1, shuffle=True, 
     return dataloader, vocab, glove, dataset.__len__()
 
 #validation loader
-def get_val_data(files, vocab, glove, batch_size=1, num_workers=0, pretrained=False, data_parallel= True, frame_trunc_length=45):
+def get_val_data(files, pklpath, vocab, glove, batch_size=1, num_workers=0, pretrained=False, data_parallel= True, frame_trunc_length=45):
     
     if pretrained:
-        pixel = Pixel(files)
-        pixel.create()
+        pixel = Pixel(files, pklpath)
+        if not pklexist:
+            pixel.create()
+            pixel.save()
+        else: pixel.load()
    
     dataset = Dataset(files)
-    dataset.set_flags(mode='test', data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
+    dataset.set_flags(mode='test', data_parallel=data_parallel, frame_trunc_length=frame_trunc_length, pretrained=pretrained)
     dataset.set_pad_indices(vocab)
     dataset.create(vocab)
     dataset.add_glove_vecs(glove)
@@ -63,13 +69,17 @@ def get_val_data(files, vocab, glove, batch_size=1, num_workers=0, pretrained=Fa
     return dataloader
 
 #test loader
-def get_test_data(files, vocab, glove, batch_size=1, num_workers=0, pretrained=False, data_parallel= True, frame_trunc_length=45):
+def get_test_data(files, pklpath, vocab, glove, batch_size=1, num_workers=0, pretrained=False, data_parallel= True, frame_trunc_length=45):
+
     if pretrained:
-        pixel = Pixel(files)
-        pixel.create()
+        pixel = Pixel(files, pklpath)
+        if not pklexist:
+            pixel.create()
+            pixel.save()
+        else: pixel.load()
 
     dataset = Dataset(files)
-    dataset.set_flags(mode='test', data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
+    dataset.set_flags(mode='test', data_parallel=data_parallel, frame_trunc_length=frame_trunc_length, pretrained=pretrained)
     dataset.set_pad_indices(vocab)
     dataset.create(vocab)
     dataset.add_glove_vecs(glove)

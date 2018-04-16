@@ -34,6 +34,6 @@ if __name__=='__main__':
 	input = Variable(torch.randn(2,3,224,224))
 	output = resnet(input)
 
-	print(output[0].data.shape)
 	print(output[1].data.shape)
-
+	print(output[1].data.type())
+	print(output[1].data[0,1:3])

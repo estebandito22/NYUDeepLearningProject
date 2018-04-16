@@ -35,7 +35,7 @@ class CSAL(nn.Module):
 
 		#PretrainedVisionLayer
 		pretrained_vision_layer_args = dict_args
-		self.pretrained_vision_layer = PreTrainedResnet(pretrained_vision_layer_args)
+		#self.pretrained_vision_layer = PreTrainedResnet(pretrained_vision_layer_args)
 
 		#VisionFeatureDimRedLayer
 		self.vision_feature_dimred_layer = nn.Linear(self.pretrained_feature_size, self.pretrained_embdim)
@@ -75,12 +75,16 @@ class CSAL(nn.Module):
 		#captionwords_mask = Variable(utils.sequence_mask(captionwords_lengths))
 		#captionwords_mask: batch_size*num_words
 
-		batch_size, num_frames, rgb, height, width = videoframes.size()
-		videoframes = videoframes.view(-1,rgb,height,width).contiguous()
+		#batch_size, num_frames, rgb, height, width = videoframes.size()
+		#videoframes = videoframes.view(-1,rgb,height,width).contiguous()
 		#videoframes : batch_size.num_frames*3*224*224
-		videoframefeatures = self.pretrained_vision_layer(videoframes)
-		videoframefeatures_fc = videoframefeatures[1]
+		#videoframefeatures = self.pretrained_vision_layer(videoframes)
+		#videoframefeatures_fc = videoframefeatures[1]
 		#videoframefeatures_fc : batch_size.num_frames*1000
+	
+		videoframes = videoframes.squeeze().contiguous()	
+		batch_size, num_frames, num_features = videoframes.size()
+		videoframefeatures_fc = videoframes.view(-1, num_features).contiguous()
 		videoframefeatures_fc = self.vision_feature_dimred_layer(videoframefeatures_fc)
 		#videoframefeatures_fc : batch_size.num_frames*rnn_hdim
 		_, feature_dim = videoframefeatures_fc.size()

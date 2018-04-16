@@ -34,14 +34,19 @@ def train():
 	frame_trunc_length = 45
 
 	train_batch_size = 16
-	train_num_workers = 8
-	train_pretrained = False
+	train_num_workers = 0
+	train_pretrained = True
+	train_pklexist = True
 	eval_batch_size = 1
+	
 
 	print("Get train data...")
+	train_pkl_file = 'MSRVTT/trainvideo.pkl'
 	file_names = [('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')]
 	files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
-	train_dataloader, vocab, glove, train_data_size = loader.get_train_data(files, glove_filepath, glove_embdim, batch_size=train_batch_size, num_workers=train_num_workers, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
+	train_pkl_path = os.path.join(cur_dir, input_dir, train_pkl_file)
+
+	train_dataloader, vocab, glove, train_data_size = loader.get_train_data(files, train_pkl_path, glove_filepath, glove_embdim, batch_size=train_batch_size, num_workers=train_num_workers, pretrained = train_pretrained, pklexist = train_pklexist, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
 
 	# print("Get validation data...")
 	# file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json.sample', 'MSRVTT/Frames')]

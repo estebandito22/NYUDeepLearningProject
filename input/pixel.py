@@ -1,5 +1,8 @@
 import os
+import sys
 import time
+import pickle
+
 import torch
 import torch.nn as nn
 import torchvision
@@ -29,7 +32,9 @@ class PreTrainedResnet(nn.Module):
         def forward(self, x):
                 intermediate_features = []
                 for name, module in self.pretrained_model._modules.items():
-			x = module(x).squeeze().contiguous()
+			if name=='fc':
+				x = x.squeeze().contiguous()
+			x = module(x)
                         if name in self.intermediate_layers:
                                 intermediate_features += [x]
                 return intermediate_features
@@ -37,8 +42,9 @@ class PreTrainedResnet(nn.Module):
 #Class name to be changed 
 class Pixel():
 
-	def __init__(self, files):
+	def __init__(self, files, pklfilepath):
 		self.files = files
+		self.pklfilepath = pklfilepath
 		self.video2vec = {}
 		self.pretrained = PreTrainedResnet({'intermediate_layers':['layer4', 'fc']})
 
@@ -51,11 +57,14 @@ class Pixel():
 				file_time = time.time()
 				imageframes = [imagetotensor(imagefile) for imagefile in imagefiles]
 				frame_time = time.time()
-				#imagefeatures = [self.pretrained(Variable(frame.cuda()))[1].view(-1).data.cpu() for frame in imageframes]
-				imagefeatures = self.pretrained(Variable(torch.stack(imageframes).cuda()))[1].data.cpu()
-				print(imagefeatures.shape)
-				imagefeatures = list(imagefeatures)
+				imagefeatures = [self.pretrained(Variable(frame.unsqueeze(0).cuda()))[1].view(-1).unsqueeze(-1).unsqueeze(-1).data.cpu() for frame in imageframes]
+				#imagefeatures = self.pretrained(Variable(torch.stack(imageframes).cuda()))[1].data.cpu()
+				#imagefeatures = torch.randn(45, 1000)
+				#imagefeatures = imagefeatures.unsqueeze(-1).unsqueeze(-1)
+				#imagefeatures = list(imagefeatures)
+				#imagefeatures = [torch.randn(1000) for i in range(45)]
 				self.video2vec[videoid] = imagefeatures
+				
 				feat_time = time.time()
 				print(videoid, len(imagefeatures), imagefeatures[0].shape)
 				print('File : {0}, Frame : {1}, Feat : {2}'.format(file_time-start_time, frame_time-file_time, feat_time-frame_time))
@@ -65,12 +74,27 @@ class Pixel():
 		#index error if video not found
 		return self.video2vec[videoid]
 
+	def save(self):
+		pklfile = open(self.pklfilepath, 'wb')
+		pickle.dump(self.video2vec, pklfile)
+		pklfile.close()
+		print("saving the pklfile to {0}".format(self.pklfilepath))
+			
+	def load(self):
+		pklfile = open(self.pklfilepath, 'rb')
+		self.video2vec = pickle.load(pklfile)
+		pklfile.close()
+
 
 if __name__ == '__main__':
 
-	pixel = Pixel([('Dummy', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')])
+	pklfilepath = 'MSRVTT/trainvideo.pkl'
+	pixel = Pixel([('Dummy', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')], pklfilepath)
 
-	pixel.create()
-
-
+	#pixel.create()
+	#pixel.save()
+	pixel.load()
+	print(len(pixel.get_pixel_vectors('video0')))
+	print(pixel.get_pixel_vectors('video1')[0])
+	
 
