@@ -92,7 +92,7 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 	if returntype == 'Bleu' or returntype == 'All':
 		captionsjson = 'captions.json'
 		captionsfile = os.path.join(cur_dir, input_dir, MSRVTT_dir, captionsjson)
-		predsfile = os.path.join(cur_dir, output_dir, MSRVTT_dir, predcaptionsjson)
+		predsfile = os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, predcaptionsjson)
 		coco = COCO(captionsfile)
 		cocopreds = coco.loadRes(predsfile)
 		cocoEval = COCOEvalCap(coco, cocopreds)
@@ -141,7 +141,8 @@ if __name__=="__main__":
 	glovefile = 'glove.pkl'
 	vocabfile = 'vocab.pkl'
 	captionsjson = 'captions.json'
-	predcaptionsjson = 'epoch{}_predcaptions.json'.format(epoch_dir)
+	predcaptionsjson = 'epoch{}_predcaptions.json'.format(EPOCH)
+	valscoresjson = 'epoch{}_valscores.json'.format(EPOCH)
 	glove_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, glovefile)
 	vocab_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, vocabfile)
 	model_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, epoch_dir, csalfile)
@@ -151,11 +152,11 @@ if __name__=="__main__":
 	if PREDICT == True:
 
 		print("Loading previously trained model...")
-		if USE_CUDA == False:
-			MAP = 'cpu'
+		if USE_CUDA == True:
+			maplocation = None
 		else:
-			MAP = 'gpu'
-		checkpoint = torch.load(model_filepath, map_location=MAP)
+			maplocation = 'cpu'
+		checkpoint = torch.load(model_filepath, map_location=maplocation)
 		model = CSAL(checkpoint['dict_args'])
 
 		if not 'sentence_decoder_layer.pretrained_words_layer.embeddings.weight' \
@@ -176,7 +177,7 @@ if __name__=="__main__":
 		vocabfile.close()
 
 		print("Get validation data...")
-		file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
+		file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json.sample', 'MSRVTT/Frames')]
 		files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 		val_dataloader = loader.get_val_data(files, vocab, glove, EVAL_BATCH_SIZE)
 
@@ -192,3 +193,6 @@ if __name__=="__main__":
 		cocopreds = coco.loadRes(preds_filepath)
 		cocoEval = COCOEvalCap(coco, cocopreds)
 		cocoEval.evaluate()
+		scores = ["{}: {:0.4f}".format(metric, score) for metric, score in cocoEval.eval.items()]
+		with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, saved_model_dir, valscoresjson), 'w') as scoresout:
+			json.dump(scores, scoresout)

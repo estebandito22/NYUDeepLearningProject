@@ -25,4 +25,3 @@ if __name__=='__main__':
 
 	pretrainedEmbeddings = PretrainedEmbeddings({"word_embeddings" : torch.randn(10,3), "pretrained_embdim" : 3, "vocabulary_size":10})
 	print(pretrainedEmbeddings(torch.LongTensor([[1,2],[9,0]])))
-

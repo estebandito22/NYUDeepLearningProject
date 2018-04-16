@@ -90,7 +90,7 @@ class BeamSearch(object):
         self.nextYs.append(bestScoresId - prev_k * num_words)
 
         # End condition is when top-of-beam is EOS.
-        if self.nextYs[-1][0].data.numpy() == self.eos:
+        if self.nextYs[-1][0].data[0] == self.eos:
             self.done = True
 
         return self.done

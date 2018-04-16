@@ -41,7 +41,13 @@ __pycache__/
 *.pyc
 
 # Project Specific
-/input/MSRVTT/Frames/*
+/input/MSRVTT/*
 /data/MSRVTT/Clips/*
 /data/MSRVTT/Videos/*
 references/*
+/output/*
+/models/*
+*.pdf
+/glove/*
+
+.gitignore
