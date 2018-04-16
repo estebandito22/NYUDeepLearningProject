@@ -21,6 +21,11 @@ def iterdatadeep(captionsjson, videosjson):
 			for caption in captionslist:
 				yield videoid, caption
 
+def itervideos(videosjson):
+	videoids = videosjson["data"]
+	for videoid in videoids:
+		yield videoid
+
 def iterimages(framesfolder, imagefolder):
 	framespath = os.path.join(framesfolder, imagefolder)
 	for filename in os.listdir(framespath):

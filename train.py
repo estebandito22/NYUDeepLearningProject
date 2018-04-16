@@ -30,13 +30,23 @@ def train():
 	glove_embdim = 100
 	glove_filepath = os.path.join(glove_dir, glove_filename)
 
-	train_batch_size = 10
+	data_parallel = True
+	frame_trunc_length = 45
+
+	train_batch_size = 16
+	train_num_workers = 0
+	train_pretrained = True
+	train_pklexist = True
 	eval_batch_size = 1
+	
 
 	print("Get train data...")
+	train_pkl_file = 'MSRVTT/trainvideo.pkl'
 	file_names = [('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')]
 	files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
-	train_dataloader, vocab, glove, train_data_size = loader.get_train_data(files, glove_filepath, glove_embdim, train_batch_size)
+	train_pkl_path = os.path.join(cur_dir, input_dir, train_pkl_file)
+
+	train_dataloader, vocab, glove, train_data_size = loader.get_train_data(files, train_pkl_path, glove_filepath, glove_embdim, batch_size=train_batch_size, num_workers=train_num_workers, pretrained = train_pretrained, pklexist = train_pklexist, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
 
 	# print("Get validation data...")
 	# file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json.sample', 'MSRVTT/Frames')]
@@ -77,8 +87,8 @@ def train():
 	criterion = nn.NLLLoss(reduce = False)
 	optimizer = optim.Adadelta(filter(lambda p: p.requires_grad, csal.parameters()), lr=learning_rate, rho=0.9, eps=1e-06, weight_decay=0)
 	if USE_CUDA:
-		#csal = nn.DataParallel(csal).cuda()
-		csal = csal.cuda()
+		if data_parallel: csal = nn.DataParallel(csal).cuda()
+		else: csal = csal.cuda()
 		criterion = criterion.cuda()
 
 	print("Start training...")
@@ -98,14 +108,15 @@ def train():
 			video_ids_list = batch[6]
 			captionwords_mask = Variable(utils.sequence_mask(output_sequence_lengths)) #batch_size*num_words
 			if USE_CUDA:
-				padded_imageframes_batch = padded_imageframes_batch.cuda()
-				frame_sequence_lengths = frame_sequence_lengths.cuda()
-				padded_inputwords_batch = padded_inputwords_batch.cuda()
-				input_sequence_lengths = input_sequence_lengths.cuda()
-				padded_outputwords_batch = padded_outputwords_batch.cuda()
-				output_sequence_lengths = output_sequence_lengths.cuda()
-				captionwords_mask = captionwords_mask.cuda()
-
+				async = data_parallel
+				padded_imageframes_batch = padded_imageframes_batch.cuda(async=async)
+				frame_sequence_lengths = frame_sequence_lengths.cuda(async=async)
+				padded_inputwords_batch = padded_inputwords_batch.cuda(async=async)
+				input_sequence_lengths = input_sequence_lengths.cuda(async=async)
+				padded_outputwords_batch = padded_outputwords_batch.cuda(async=async)
+				output_sequence_lengths = output_sequence_lengths.cuda(async=async)
+				captionwords_mask = captionwords_mask.cuda(async=async)
+			print(padded_imageframes_batch.size())
 			cuda_time = time.time()
 			#######Forward
 			csal = csal.train()
