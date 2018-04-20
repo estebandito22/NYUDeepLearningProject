@@ -20,12 +20,9 @@ except:
 	from wordspretrained import PretrainedEmbeddings
 
 
+USE_CUDA = False
 if torch.cuda.is_available():
 	USE_CUDA = True
-else:
-	USE_CUDA = False
-	from evaluators.pycocotools.coco_video import COCO
-	from evaluators.pycocoevalcap.eval import COCOEvalCap
 
 def _caption(hyp, videoid, vocab):
 	generatedstring = ' '.join([str(vocab.index2word[index.data[0]]) for index in hyp])
@@ -55,8 +52,6 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 		frame_sequence_lengths = Variable(torch.LongTensor(batch[1]), volatile=True) #batch_size
 		padded_inputwords_batch = Variable(torch.LongTensor([[vocab.word2index['<bos>']]]), volatile=True) #batch_size*num_words
 		dummy_input_sequence_lengths = Variable(torch.LongTensor([[0]]), volatile=True) #batch_size
-		# padded_outputwords_batch = Variable(torch.LongTensor(batch[2])) #batch_size*num_words
-		# output_sequence_lengths = Variable(torch.LongTensor(batch[3])) #batch_size
 		video_ids_list = batch[2]
 		if USE_CUDA:
 			padded_imageframes_batch = padded_imageframes_batch.cuda()
@@ -67,16 +62,8 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 		#######Forward
 		model.eval()
 		outputword_log_probabilities, indexcaption = model(padded_imageframes_batch, frame_sequence_lengths, \
-															padded_inputwords_batch, dummy_input_sequence_lengths)
+						padded_inputwords_batch, dummy_input_sequence_lengths)
 
-		#######Calculate Loss
-		# outputword_log_probabilities = outputword_log_probabilities.permute(0, 2, 1)
-		# #outputword_log_probabilities: batch_size*vocab_size*num_words
-		# #padded_outputwords_batch: batch_size*num_words
-		# losses = criterion(outputword_log_probabilities, padded_outputwords_batch)
-		# #loss: batch_size*num_words
-		# losses = losses*captionwords_mask.float()
-		# loss = losses.sum()
 
 		#######Captions
 		stringcaptions += [_caption(indexcaption, video_ids_list[0], vocab)]
@@ -87,23 +74,7 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 	with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, predcaptionsjson), 'w') as predsout:
 		json.dump(stringcaptions, predsout)
 
-	#for Variables use volatile=True
-	# if returntype == 'Bleu' or returntype == 'All':
-	# 	captionsjson = 'captions.json'
-	# 	captionsfile = os.path.join(cur_dir, input_dir, MSRVTT_dir, captionsjson)
-	# 	predsfile = os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, predcaptionsjson)
-	# 	coco = COCO(captionsfile)
-	# 	cocopreds = coco.loadRes(predsfile)
-	# 	cocoEval = COCOEvalCap(coco, cocopreds)
-	# 	cocoEval.evaluate()
-	# 	scores = ["{}: {:0.4f}".format(metric, score) for metric, score in cocoEval.eval.items()]
-	# 	with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, valscoresjson), 'w') as scoresout:
-	# 		json.dump(scores, scoresout)
-	# 	if returntype == 'Bleu':
-	# 		return scores
-	# elif returntype == 'Loss':
-	# 	return loss
-	# return loss, scores
+	return
 
 if __name__=="__main__":
 
@@ -127,7 +98,7 @@ if __name__=="__main__":
 
 	PREDICT = args['predict']
 	EVAL_BATCH_SIZE = int(args['batch_size'])
-	EPOCH = int(args['saved_model_epoch'][-1])
+	EPOCH = int(args['saved_model_epoch'][5:])
 
 	cur_dir = os.getcwd()
 	input_dir = 'input'
@@ -192,16 +163,5 @@ if __name__=="__main__":
 		#Get Validation Loss to stop overriding
 		# val_loss, bleu = evaluator.evaluate(val_dataloader, csal, vocab)
 		# print("Validation Loss: {}\tValidation Scores: {}".format(val_loss, bleu))
-		# bleu = evaluate(val_dataloader, model, vocab, epoch=EPOCH, model_name=saved_model_dir, returntype='Bleu')
 		evaluate(val_dataloader, model, vocab, epoch=EPOCH, model_name=saved_model_dir, returntype='Bleu')
-		# print("Validation Scores: {}".format(bleu))
 
-	else:
-
-		coco = COCO(captions_filepath)
-		cocopreds = coco.loadRes(preds_filepath)
-		cocoEval = COCOEvalCap(coco, cocopreds)
-		cocoEval.evaluate()
-		scores = ["{}: {:0.4f}".format(metric, score) for metric, score in cocoEval.eval.items()]
-		with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, saved_model_dir, valscoresjson), 'w') as scoresout:
-			json.dump(scores, scoresout)

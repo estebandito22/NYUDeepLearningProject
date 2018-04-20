@@ -81,9 +81,10 @@ class CSAL(nn.Module):
 		#videoframefeatures = self.pretrained_vision_layer(videoframes)
 		#videoframefeatures_fc = videoframefeatures[1]
 		#videoframefeatures_fc : batch_size.num_frames*1000
+	
+		videoframes = videoframes.contiguous()
+		batch_size, num_frames, num_features, _, _ = videoframes.size()
 
-		videoframes = videoframes.squeeze().contiguous()
-		batch_size, num_frames, num_features = videoframes.size()
 		videoframefeatures_fc = videoframes.view(-1, num_features).contiguous()
 		videoframefeatures_fc = self.vision_feature_dimred_layer(videoframefeatures_fc)
 		#videoframefeatures_fc : batch_size.num_frames*rnn_hdim
