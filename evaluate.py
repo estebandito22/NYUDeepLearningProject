@@ -19,13 +19,13 @@ try:
 except:
 	from wordspretrained import PretrainedEmbeddings
 
+from evaluators.pycocotools.coco_video import COCO
+from evaluators.pycocoevalcap.eval import COCOEvalCap
 
 if torch.cuda.is_available():
 	USE_CUDA = True
 else:
 	USE_CUDA = False
-	from evaluators.pycocotools.coco_video import COCO
-	from evaluators.pycocoevalcap.eval import COCOEvalCap
 
 def _caption(hyp, videoid, vocab):
 	generatedstring = ' '.join([str(vocab.index2word[index.data[0]]) for index in hyp])
