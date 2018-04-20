@@ -111,7 +111,7 @@ if __name__=="__main__":
 	Usage: Example of command to use the previously trained model "baseline1"
 	from "epoch0" to generate predictions and evaluate on validaition.
 
-	python evaluate.py -p -m baseline1 -e epoch0
+	python evaluate.py -p -m baseline1 -e 100
 	"""
 
 	ap = argparse.ArgumentParser()
@@ -127,7 +127,7 @@ if __name__=="__main__":
 
 	PREDICT = args['predict']
 	EVAL_BATCH_SIZE = int(args['batch_size'])
-	EPOCH = int(args['saved_model_epoch'][-1])
+	EPOCH = int(args['saved_model_epoch'])
 
 	cur_dir = os.getcwd()
 	input_dir = 'input'
@@ -135,7 +135,7 @@ if __name__=="__main__":
 	MSRVTT_dir = 'MSRVTT'
 	models_dir = 'models'
 	saved_model_dir = args['saved_model_dir']
-	epoch_dir = args['saved_model_epoch']
+	epoch_dir = 'epoch'+args['saved_model_epoch']
 	csalfile = 'csal.pth'
 	glovefile = 'glove.pkl'
 	vocabfile = 'vocab.pkl'
