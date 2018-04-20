@@ -38,7 +38,7 @@ class CSAL(nn.Module):
 		#self.pretrained_vision_layer = PreTrainedResnet(pretrained_vision_layer_args)
 
 		#VisionFeatureDimRedLayer
-		self.vision_feature_dimred_layer = nn.Linear(self.pretrained_feature_size, self.pretrained_embdim)
+		self.vision_feature_dimred_layer = nn.Linear(self.pretrained_feature_size, self.decoder_rnn_hidden_dim)
 
 		#PretrainedWordsLayer
 		pretrained_words_layer_args = dict_args
@@ -52,7 +52,7 @@ class CSAL(nn.Module):
 										'vocabulary_size' : self.vocabulary_size,
 										'vocabulary_bosindex': self.vocabulary_bosindex,
 										'vocabulary_eosindex': self.vocabulary_eosindex,
-										'tie_weights' : True,
+										'tie_weights' : self.decoder_tie_weights,
 										'word_embeddings' : self.pretrained_words_layer.embeddings.weight,
 										'pretrained_words_layer': self.pretrained_words_layer
 									  }
@@ -65,7 +65,7 @@ class CSAL(nn.Module):
 		#inputwords : batch_size*num_words
 		#outputwords : batch_size*num_words
 		#captionwords_lengths : batch_size
-		
+
 		videoframes = videoframes[:,0:videoframes_lengths.data.max()].contiguous()
 
 		videoframes_mask = Variable(utils.sequence_mask(videoframes_lengths))
@@ -84,6 +84,7 @@ class CSAL(nn.Module):
 	
 		videoframes = videoframes.contiguous()
 		batch_size, num_frames, num_features, _, _ = videoframes.size()
+
 		videoframefeatures_fc = videoframes.view(-1, num_features).contiguous()
 		videoframefeatures_fc = self.vision_feature_dimred_layer(videoframefeatures_fc)
 		#videoframefeatures_fc : batch_size.num_frames*rnn_hdim
