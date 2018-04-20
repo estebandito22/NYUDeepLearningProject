@@ -49,7 +49,7 @@ def get_train_data(files, pklpath, glove_file, glove_embdim, batch_size=1, shuff
     return dataloader, vocab, glove, dataset.__len__()
 
 #validation loader
-def get_val_data(files, pklpath, vocab, glove, batch_size=1, num_workers=0, pretrained=False, data_parallel= True, frame_trunc_length=45):
+def get_val_data(files, pklpath, vocab, glove, batch_size=1, num_workers=0, pretrained=False, pklexist=False, data_parallel= True, frame_trunc_length=45):
     
     if pretrained:
         pixel = Pixel(files, pklpath)
