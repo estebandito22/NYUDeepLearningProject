@@ -39,7 +39,7 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 	output_dir = 'output'
 	MSRVTT_dir = 'MSRVTT'
 	predcaptionsjson = 'epoch{}_predcaptions.json'.format(epoch)
-	valscoresjson = 'val_scores.json'
+	valscoresjson = 'epoch{}_val_scores.json'.format(epoch)
 
 	stringcaptions = []
 
