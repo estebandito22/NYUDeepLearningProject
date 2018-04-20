@@ -14,9 +14,6 @@ import input.dataloader as loader
 import layers.utils as utils
 from csal import CSAL
 
-from evaluators.pycocotools.coco_video import COCO
-from evaluators.pycocoevalcap.eval import COCOEvalCap
-
 try:
 	from layers.wordspretrained import PretrainedEmbeddings
 except:
@@ -27,6 +24,8 @@ if torch.cuda.is_available():
 	USE_CUDA = True
 else:
 	USE_CUDA = False
+	from evaluators.pycocotools.coco_video import COCO
+	from evaluators.pycocoevalcap.eval import COCOEvalCap
 
 def _caption(hyp, videoid, vocab):
 	generatedstring = ' '.join([str(vocab.index2word[index.data[0]]) for index in hyp])
