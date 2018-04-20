@@ -88,22 +88,22 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 		json.dump(stringcaptions, predsout)
 
 	#for Variables use volatile=True
-	# if returntype == 'Bleu' or returntype == 'All':
-	# 	captionsjson = 'captions.json'
-	# 	captionsfile = os.path.join(cur_dir, input_dir, MSRVTT_dir, captionsjson)
-	# 	predsfile = os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, predcaptionsjson)
-	# 	coco = COCO(captionsfile)
-	# 	cocopreds = coco.loadRes(predsfile)
-	# 	cocoEval = COCOEvalCap(coco, cocopreds)
-	# 	cocoEval.evaluate()
-	# 	scores = ["{}: {:0.4f}".format(metric, score) for metric, score in cocoEval.eval.items()]
-	# 	with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, valscoresjson), 'w') as scoresout:
-	# 		json.dump(scores, scoresout)
-	# 	if returntype == 'Bleu':
-	# 		return scores
-	# elif returntype == 'Loss':
-	# 	return loss
-	# return loss, scores
+	if returntype == 'Bleu' or returntype == 'All':
+		captionsjson = 'captions.json'
+		captionsfile = os.path.join(cur_dir, input_dir, MSRVTT_dir, captionsjson)
+		predsfile = os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, predcaptionsjson)
+		coco = COCO(captionsfile)
+		cocopreds = coco.loadRes(predsfile)
+		cocoEval = COCOEvalCap(coco, cocopreds)
+		cocoEval.evaluate()
+		scores = ["{}: {:0.4f}".format(metric, score) for metric, score in cocoEval.eval.items()]
+		with open(os.path.join(cur_dir, output_dir, MSRVTT_dir, model_name, valscoresjson), 'w') as scoresout:
+			json.dump(scores, scoresout)
+		if returntype == 'Bleu':
+			return scores
+	elif returntype == 'Loss':
+		return loss
+	return loss, scores
 
 if __name__=="__main__":
 
