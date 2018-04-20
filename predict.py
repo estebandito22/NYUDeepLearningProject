@@ -147,21 +147,20 @@ if __name__=="__main__":
 		vocab = pickle.load(vocabfile)
 		vocabfile.close()
 
-                data_parallel = True
-                frame_trunc_length = 45
-                val_num_workers = 0
-                val_pretrained = True
-                val_pklexist = True
+		data_parallel = True
+		frame_trunc_length = 45
+		val_num_workers = 0
+		val_pretrained = True
+		val_pklexist = True
 
-                print("Get validation data...")
-                val_pkl_file = 'MSRVTT/valvideo.pkl'
-                file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
-                files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
+		print("Get validation data...")
+		val_pkl_file = 'MSRVTT/valvideo.pkl'
+		file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
+		files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 		val_pkl_path = os.path.join(cur_dir, input_dir, val_pkl_file)
-                val_dataloader = loader.get_val_data(files, val_pkl_path, vocab, glove, batch_size=EVAL_BATCH_SIZE, num_workers=val_num_workers, pretrained=val_pretrained, pklexist= val_pklexist, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
+		val_dataloader = loader.get_val_data(files, val_pkl_path, vocab, glove, batch_size=EVAL_BATCH_SIZE, num_workers=val_num_workers, pretrained=val_pretrained, pklexist= val_pklexist, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
 
 		#Get Validation Loss to stop overriding
 		# val_loss, bleu = evaluator.evaluate(val_dataloader, csal, vocab)
 		# print("Validation Loss: {}\tValidation Scores: {}".format(val_loss, bleu))
 		evaluate(val_dataloader, model, vocab, epoch=EPOCH, model_name=saved_model_dir, returntype='Bleu')
-
