@@ -25,8 +25,9 @@ if torch.cuda.is_available():
 	USE_CUDA = True
 
 def _caption(hyp, videoid, vocab):
-	generatedstring = ' '.join([str(vocab.index2word[index.data[0]]) for index in hyp])
+	generatedstring = ' '.join([str(vocab.index2word[index]) for index in hyp[1:-1]])
 	string_hyp = {'videoid': str(videoid), 'captions': [generatedstring]}
+	print(string_hyp)
 	return string_hyp
 
 def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
@@ -61,11 +62,12 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 
 		#######Forward
 		model.eval()
-		outputword_log_probabilities, indexcaption = model(padded_imageframes_batch, frame_sequence_lengths, \
+		indexcaption = model(padded_imageframes_batch, frame_sequence_lengths, \
 						padded_inputwords_batch, dummy_input_sequence_lengths)
 
 
 		#######Captions
+		#print(indexcaption)
 		stringcaptions += [_caption(indexcaption, video_ids_list[0], vocab)]
 
 	#######Write predicted captions
@@ -78,13 +80,7 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 
 if __name__=="__main__":
 
-	"""
-	Usage: Example of command to use the previously trained model "baseline1"
-	from "epoch0" to generate predictions and evaluate on validaition.
-
-	python evaluate.py -p -m baseline1 -e epoch0
-	"""
-
+	'''python predict.py -p -m baseline1 -e epoch0'''
 	ap = argparse.ArgumentParser()
 	ap.add_argument("-p", "--predict", action="store_true", default=False,
 		required=False, help="Flag to load a pretrained model and predict.")
@@ -128,15 +124,8 @@ if __name__=="__main__":
 			maplocation = 'cpu'
 		checkpoint = torch.load(model_filepath, map_location=maplocation)
 		model = CSAL(checkpoint['dict_args'])
+		print(checkpoint['dict_args'])
 		model = nn.DataParallel(model)
-		print(checkpoint)
-		if not 'module.sentence_decoder_layer.pretrained_words_layer.embeddings.weight' \
-			in checkpoint['state_dict']:
-
-			pretrained_words_layer = model.module.pretrained_words_layer
-			checkpoint['state_dict']['module.sentence_decoder_layer.pretrained_words_layer.embeddings.weight'] \
-				= pretrained_words_layer.embeddings.weight
-
 		model.load_state_dict(checkpoint['state_dict'])
 
 		glovefile = open(glove_filepath, 'rb')
@@ -160,8 +149,5 @@ if __name__=="__main__":
 		val_pkl_path = os.path.join(cur_dir, input_dir, val_pkl_file)
                 val_dataloader = loader.get_val_data(files, val_pkl_path, vocab, glove, batch_size=EVAL_BATCH_SIZE, num_workers=val_num_workers, pretrained=val_pretrained, pklexist= val_pklexist, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
 
-		#Get Validation Loss to stop overriding
-		# val_loss, bleu = evaluator.evaluate(val_dataloader, csal, vocab)
-		# print("Validation Loss: {}\tValidation Scores: {}".format(val_loss, bleu))
 		evaluate(val_dataloader, model, vocab, epoch=EPOCH, model_name=saved_model_dir, returntype='Bleu')
 

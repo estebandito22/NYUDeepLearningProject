@@ -20,8 +20,8 @@ def get_train_data(files, pklpath, glove_file, glove_embdim, batch_size=1, shuff
     
     start_time = time.time()
     vocab = Vocab(files)
-    vocab.create()
     vocab.add_begend_vocab()
+    vocab.create()
     vocab_time = time.time()
 
     glove = Glove(glove_file, glove_embdim)

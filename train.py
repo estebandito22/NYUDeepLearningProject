@@ -26,14 +26,14 @@ def train():
 	cur_dir = os.getcwd()
 	input_dir = 'input'
 	glove_dir = 'glove/'
-	glove_filename = 'glove.6B.100d.txt'
-	glove_embdim = 100
+	glove_filename = 'glove.6B.300d.txt'
+	glove_embdim = 300
 	glove_filepath = os.path.join(glove_dir, glove_filename)
 
 	data_parallel = True
 	frame_trunc_length = 45
 
-	train_batch_size = 16
+	train_batch_size = 32
 	train_num_workers = 0
 	train_pretrained = True
 	train_pklexist = True
@@ -53,7 +53,7 @@ def train():
 	# files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	# val_dataloader = loader.get_val_data(files, vocab, glove, eval_batch_size)
 
-	modelname = 'baseline1'
+	modelname = 'csal2'
 	save_dir = 'models/{}/'.format(modelname)
 	save_dir_path = os.path.join(cur_dir, save_dir)
 	if not os.path.exists(save_dir_path):
@@ -71,18 +71,21 @@ def train():
 	dict_args = {
 					"intermediate_layers" : ['layer4', 'fc'],
 					"word_embeddings" : pretrained_wordvecs,
-					"pretrained_embdim" : glove_embdim,
+					"word_embdim" : glove_embdim,
 					"vocabulary_size" : len(pretrained_wordvecs),
+					"use_pretrained_emb" : True,
+					"backprop_embeddings" : True,
 					"vocabulary_bosindex": vocab.word2index["<bos>"],
 					"vocabulary_eosindex": vocab.word2index["<eos>"],
-					"decoder_rnn_hidden_dim" : glove_embdim,
+					#"decoder_rnn_hidden_dim" : glove_embdim,
+					"decoder_rnn_hidden_dim" : 512,
 					"decoder_tie_weights" : True,
 					"decoder_rnn_type" : 'LSTM',
 					"pretrained_feature_size" : 1000
 				}
 	csal = CSAL(dict_args)
 
-	num_epochs = 100
+	num_epochs = 500
 	learning_rate = 1
 	criterion = nn.NLLLoss(reduce = False)
 	optimizer = optim.Adadelta(filter(lambda p: p.requires_grad, csal.parameters()), lr=learning_rate, rho=0.9, eps=1e-06, weight_decay=0)

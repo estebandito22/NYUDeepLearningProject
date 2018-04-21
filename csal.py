@@ -5,7 +5,7 @@ import torch.nn.functional as functional
 
 from layers.wordspretrained import PretrainedEmbeddings
 from layers.visionpretrained import PreTrainedResnet
-from layers.sentencedecoder import SentenceDecoder
+from layers.languagemodel import LanguageModel
 
 import layers.utils as utils
 
@@ -22,10 +22,10 @@ class CSAL(nn.Module):
 
 		#PretrainedWordsLayer
 		self.word_embeddings = dict_args["word_embeddings"]
-		self.pretrained_embdim = dict_args["pretrained_embdim"]
+		self.pretrained_embdim = dict_args["word_embdim"]
 		self.vocabulary_size = dict_args["vocabulary_size"]
-		self.vocabulary_bosindex = dict_args["vocabulary_bosindex"]
-		self.vocabulary_eosindex = dict_args["vocabulary_eosindex"]
+		#self.vocabulary_bosindex = dict_args["vocabulary_bosindex"]
+		#self.vocabulary_eosindex = dict_args["vocabulary_eosindex"]
 
 		#SentenceDecoderLayer
 		self.decoder_rnn_hidden_dim = dict_args["decoder_rnn_hidden_dim"]
@@ -50,13 +50,11 @@ class CSAL(nn.Module):
 										'rnn_hdim' : self.decoder_rnn_hidden_dim,
 										'rnn_type' : self.decoder_rnn_type,
 										'vocabulary_size' : self.vocabulary_size,
-										'vocabulary_bosindex': self.vocabulary_bosindex,
-										'vocabulary_eosindex': self.vocabulary_eosindex,
 										'tie_weights' : self.decoder_tie_weights,
 										'word_embeddings' : self.pretrained_words_layer.embeddings.weight,
 										'pretrained_words_layer': self.pretrained_words_layer
 									  }
-		self.sentence_decoder_layer = SentenceDecoder(sentence_decoder_layer_args)
+		self.sentence_decoder_layer = LanguageModel(sentence_decoder_layer_args)
 
 
 	def forward(self, videoframes, videoframes_lengths, inputwords, captionwords_lengths):
@@ -99,6 +97,10 @@ class CSAL(nn.Module):
 		inputword_vectors = self.pretrained_words_layer(inputwords)
 		#inputword_vectors: batch_size*num_words*wembed_dim
 
+		if not self.training:
+			return self.sentence_decoder_layer.inference(videoframefeatures_fcmeanpooling, self.pretrained_words_layer)
+
+
 		#outputword_values = self.sentence_decoder_layer(inputword_vectors, videoframefeatures_fcmeanpooling, captionwords_mask)
 		# outputword_values = self.sentence_decoder_layer(inputword_vectors, videoframefeatures_fcmeanpooling)
 		outputword_log_probabilities = self.sentence_decoder_layer(inputword_vectors, videoframefeatures_fcmeanpooling)
@@ -118,7 +120,9 @@ if __name__=='__main__':
 	dict_args = {
 					"intermediate_layers" : ['layer4', 'fc'],
 					"word_embeddings" : pretrained_wordvecs,
-					"pretrained_embdim" : glove_embdim,
+					"word_embdim" : glove_embdim,
+                                        "use_pretrained_emb" : True,
+                                        "backprop_embeddings" : False,
 					"vocabulary_size" : len(pretrained_wordvecs),
 					"decoder_rnn_hidden_dim" : glove_embdim,
 					"decoder_tie_weights" : True,
@@ -126,7 +130,7 @@ if __name__=='__main__':
 					"pretrained_feature_size" : 1000
 				}
 	csal = CSAL(dict_args)
-	videoframes = Variable(torch.randn(2, 4, 3, 224, 224))
+	videoframes = Variable(torch.randn(2, 4, 1000, 1, 1))
 	videoframes_lengths = Variable(torch.LongTensor([4,2]))
 	inputwords = Variable(torch.LongTensor([[2,3,5], [7,9,1]]))
 	#outputwords = Variable(torch.LongTensor([[3,5,2], [9,7,1]]))

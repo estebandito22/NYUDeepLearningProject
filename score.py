@@ -72,7 +72,7 @@ if __name__=="__main__":
 
 	PREDICT = args['predict']
 	EVAL_BATCH_SIZE = int(args['batch_size'])
-	EPOCH = int(args['saved_model_epoch'][-1])
+	EPOCH = int(args['saved_model_epoch'][5:])
 
 	cur_dir = os.getcwd()
 	input_dir = 'input'
