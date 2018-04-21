@@ -19,13 +19,13 @@ try:
 except:
 	from wordspretrained import PretrainedEmbeddings
 
+from evaluators.pycocotools.coco_video import COCO
+from evaluators.pycocoevalcap.eval import COCOEvalCap
 
 if torch.cuda.is_available():
 	USE_CUDA = True
 else:
 	USE_CUDA = False
-	from evaluators.pycocotools.coco_video import COCO
-	from evaluators.pycocoevalcap.eval import COCOEvalCap
 
 def _caption(hyp, videoid, vocab):
 	generatedstring = ' '.join([str(vocab.index2word[index.data[0]]) for index in hyp])
@@ -39,7 +39,7 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 	output_dir = 'output'
 	MSRVTT_dir = 'MSRVTT'
 	predcaptionsjson = 'epoch{}_predcaptions.json'.format(epoch)
-	valscoresjson = 'val_scores.json'
+	valscoresjson = 'epoch{}_val_scores.json'.format(epoch)
 
 	stringcaptions = []
 
@@ -111,7 +111,7 @@ if __name__=="__main__":
 	Usage: Example of command to use the previously trained model "baseline1"
 	from "epoch0" to generate predictions and evaluate on validaition.
 
-	python evaluate.py -p -m baseline1 -e epoch0
+	python evaluate.py -p -m baseline1 -e 100
 	"""
 
 	ap = argparse.ArgumentParser()
@@ -127,7 +127,7 @@ if __name__=="__main__":
 
 	PREDICT = args['predict']
 	EVAL_BATCH_SIZE = int(args['batch_size'])
-	EPOCH = int(args['saved_model_epoch'][-1])
+	EPOCH = int(args['saved_model_epoch'])
 
 	cur_dir = os.getcwd()
 	input_dir = 'input'
@@ -135,7 +135,7 @@ if __name__=="__main__":
 	MSRVTT_dir = 'MSRVTT'
 	models_dir = 'models'
 	saved_model_dir = args['saved_model_dir']
-	epoch_dir = args['saved_model_epoch']
+	epoch_dir = 'epoch'+args['saved_model_epoch']
 	csalfile = 'csal.pth'
 	glovefile = 'glove.pkl'
 	vocabfile = 'vocab.pkl'
@@ -176,24 +176,31 @@ if __name__=="__main__":
 		vocab = pickle.load(vocabfile)
 		vocabfile.close()
 
-                data_parallel = True
-                frame_trunc_length = 45
-                val_num_workers = 0
-                val_pretrained = True
-                val_pklexist = True
+		data_parallel = True
+		frame_trunc_length = 45
+		val_num_workers = 0
+		val_pretrained = True
+		val_pklexist = True
 
-                print("Get validation data...")
-                val_pkl_file = 'MSRVTT/valvideo.pkl'
-                file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
-                files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
+		print("Get validation data...")
+		val_pkl_file = 'MSRVTT/valvideo.pkl'
+		file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
+		files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 		val_pkl_path = os.path.join(cur_dir, input_dir, val_pkl_file)
-                val_dataloader = loader.get_val_data(files, val_pkl_path, vocab, glove, batch_size=EVAL_BATCH_SIZE, num_workers=val_num_workers, pretrained=val_pretrained, pklexist= val_pklexist, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
+		val_dataloader = loader.get_val_data(files, val_pkl_path, vocab, glove,
+		 									batch_size=EVAL_BATCH_SIZE,
+											num_workers=val_num_workers,
+											pretrained=val_pretrained,
+											pklexist= val_pklexist,
+											data_parallel=data_parallel,
+											frame_trunc_length=frame_trunc_length)
 
 		#Get Validation Loss to stop overriding
 		# val_loss, bleu = evaluator.evaluate(val_dataloader, csal, vocab)
 		# print("Validation Loss: {}\tValidation Scores: {}".format(val_loss, bleu))
-		bleu = evaluate(val_dataloader, model, vocab, epoch=EPOCH, model_name=saved_model_dir, returntype='Bleu')
-		print("Validation Scores: {}".format(bleu))
+		# bleu = evaluate(val_dataloader, model, vocab, epoch=EPOCH, model_name=saved_model_dir, returntype='Bleu')
+		evaluate(val_dataloader, model, vocab, epoch=EPOCH, model_name=saved_model_dir, returntype='Bleu')
+		# print("Validation Scores: {}".format(bleu))
 
 	else:
 

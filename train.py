@@ -38,7 +38,6 @@ def train():
 	train_pretrained = True
 	train_pklexist = True
 	eval_batch_size = 1
-	
 
 	print("Get train data...")
 	train_pkl_file = 'MSRVTT/trainvideo.pkl'
