@@ -98,8 +98,8 @@ class SentenceDecoder(nn.Module):
 
 			generator = GenerateCaption(self.rnn, h_t, c_t, isequence, osequence,
 		                 self.pretrained_words_layer, self.linear, self.rnn_type,
-		                 10, self.vocab_bosindex, self.vocab_eosindex, cuda=USE_CUDA,
-		                 max_words=100, alpa=0.7)
+		                 100, self.vocab_bosindex, self.vocab_eosindex, cuda=USE_CUDA,
+		                 max_words=100, alpha=0.7)
 
 			return generator.generate_caption()
 

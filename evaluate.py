@@ -158,6 +158,10 @@ if __name__=="__main__":
 		else:
 			maplocation = 'cpu'
 		checkpoint = torch.load(model_filepath, map_location=maplocation)
+		
+		if not 'embeddings_requires_grad' in checkpoint['dict_args']:
+			checkpoint['dict_args']['embeddings_requires_grad'] = False
+
 		model = CSAL(checkpoint['dict_args'])
 		model = nn.DataParallel(model)
 		# print(checkpoint['state_dict'].keys())
