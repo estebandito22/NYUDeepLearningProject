@@ -53,7 +53,7 @@ from skimage.draw import polygon
 import copy
 
 class COCO:
-    def __init__(self, annotation_file=None):
+    def __init__(self, annotation_file=None, load_res=False):
         """
         Constructor of Microsoft COCO helper class for reading and visualizing annotations.
         :param annotation_file (str): location of annotation file
@@ -67,6 +67,7 @@ class COCO:
         self.catToImgs = {}
         self.imgs = []
         self.cats = []
+        self.load_res = load_res
         if not annotation_file == None:
             print('loading annotations into memory...')
             time_t = datetime.datetime.utcnow()
@@ -81,7 +82,11 @@ class COCO:
         imgToAnns = {int(video['videoid'][5:]): [] for video in self.dataset['data']}
         for video in self.dataset['data']:
             for caption in video['captions']:
-                imgToAnns[int(video['videoid'][5:])] += [{'caption': ' '.join(caption).encode('utf-8').strip()}]
+                if self.load_res:
+                    sep = ''
+                else:
+                    sep = ' '
+                imgToAnns[int(video['videoid'][5:])] += [{'caption': sep.join(caption).encode('utf-8').strip()}]
 
         print('index created!')
 
@@ -106,8 +111,7 @@ class COCO:
         :param   resFile (str)     : file name of result file
         :return: res (obj)         : result api object
         """
-        res = COCO()
-
+        res = COCO(load_res=True)
         print('Loading and preparing results...     ')
         time_t = datetime.datetime.utcnow()
         anns = json.load(open(resFile, 'r'))

@@ -13,7 +13,7 @@ class COCOEvalCap:
         self.coco = coco
         self.cocoRes = cocoRes
         # self.params = {'image_id': coco.getImgIds()}
-        self.params = {'image_id': cocoRes.getImgIds()}
+        self.params = {'image_id': cocoRes.getImgIds()} #SC Edit
 
     def evaluate(self):
         imgIds = self.params['image_id']

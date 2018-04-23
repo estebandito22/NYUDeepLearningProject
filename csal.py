@@ -26,6 +26,7 @@ class CSAL(nn.Module):
 		self.vocabulary_size = dict_args["vocabulary_size"]
 		self.vocabulary_bosindex = dict_args["vocabulary_bosindex"]
 		self.vocabulary_eosindex = dict_args["vocabulary_eosindex"]
+		self.embeddings_requires_grad = dict_args["embeddings_requires_grad"]
 
 		#SentenceDecoderLayer
 		self.decoder_rnn_hidden_dim = dict_args["decoder_rnn_hidden_dim"]
@@ -81,7 +82,7 @@ class CSAL(nn.Module):
 		#videoframefeatures = self.pretrained_vision_layer(videoframes)
 		#videoframefeatures_fc = videoframefeatures[1]
 		#videoframefeatures_fc : batch_size.num_frames*1000
-	
+
 		videoframes = videoframes.contiguous()
 		batch_size, num_frames, num_features, _, _ = videoframes.size()
 

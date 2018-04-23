@@ -77,7 +77,8 @@ def train():
 					"decoder_rnn_hidden_dim" : glove_embdim,
 					"decoder_tie_weights" : True,
 					"decoder_rnn_type" : 'LSTM',
-					"pretrained_feature_size" : 1000
+					"pretrained_feature_size" : 1000,
+					"embeddings_requires_grad": False
 				}
 	csal = CSAL(dict_args)
 

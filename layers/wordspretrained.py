@@ -11,10 +11,11 @@ class PretrainedEmbeddings(nn.Module):
 		self.word_embeddings = dict_args["word_embeddings"]
 		self.pretrained_embdim = dict_args["pretrained_embdim"]
 		self.vocabulary_size = dict_args["vocabulary_size"]
+		self.embeddings_requires_grad = dict_args["embeddings_requires_grad"]
 
 		self.embeddings = nn.Embedding(self.vocabulary_size, self.pretrained_embdim)
 		self.embeddings.weight = nn.Parameter(self.word_embeddings)
-		self.embeddings.weight.requires_grad = False
+		self.embeddings.weight.requires_grad = self.embeddings_requires_grad
 
 	def forward(self, sequence):
 		#sequence: batch_size*num_words

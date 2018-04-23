@@ -10,8 +10,12 @@ except:
 	import utils as utils
 	from wordspretrained import PretrainedEmbeddings
 
-from layers.beamsearch import BeamSearch
+from layers.generatecaption import GenerateCaption
 
+if torch.cuda.is_available():
+	USE_CUDA = True
+else:
+	USE_CUDA = False
 
 class SentenceDecoder(nn.Module):
 
@@ -91,36 +95,13 @@ class SentenceDecoder(nn.Module):
 			return osequence_probs #batch_size*num_words*vocab_size
 
 		else:
-			######Greedy inference
-			beam = BeamSearch(1, self.vocab_bosindex, self.vocab_eosindex, cuda=False)
 
-			MAX_WORDS = 50
-			step = 0
-			done = False
-			while not done and step < MAX_WORDS:
-				input = isequence[step]
-				if self.rnn_type == 'LSTM':
-					h_t, c_t = self.rnn(input, (h_t, c_t)) #h_t: batch_size*hidden_dim
-				elif self.rnn_type == 'GRU':
-					h_t = self.rnn(input, h_t) #h_t: batch_size*hidden_dim
-				elif self.rnn_type == 'RNN':
-					pass
+			generator = GenerateCaption(self.rnn, h_t, c_t, isequence, osequence,
+		                 self.pretrained_words_layer, self.linear, self.rnn_type,
+		                 10, self.vocab_bosindex, self.vocab_eosindex, cuda=USE_CUDA,
+		                 max_words=100, alpa=0.7)
 
-				osequence[step] = self.linear(h_t)
-				cur_osequence_probs = functional.log_softmax(osequence[step], dim=1)
-
-				done = beam.advance(cur_osequence_probs.t())
-				hyp_vector = self.pretrained_words_layer(beam.get_hyp(0)[-1])
-				isequence = torch.cat([isequence, hyp_vector.unsqueeze(0)])
-
-				if not done:
-					osequence = torch.cat([osequence, osequence[step].unsqueeze(0)])
-					step += 1
-
-			osequence = osequence.permute(1,0,2)
-			osequence_probs = functional.log_softmax(osequence, dim=2)
-
-			return osequence_probs, beam.get_hyp(0)
+			return generator.generate_caption()
 
 
 if __name__=='__main__':

@@ -14,7 +14,11 @@
 # https://github.com/pytorch/examples/blob/master/OpenNMT/onmt/Beam.py
 
 import torch
-# from layers.sentencedecoder import SentenceDecoder
+
+# try:
+#     from layers.sentencedecoder import SentenceDecoder
+# except:
+#     from sentencedecoder import SentenceDecoder
 
 import torch
 import torch.nn as nn
@@ -23,16 +27,17 @@ from torch.autograd import Variable
 import layers.utils as utils
 from layers.wordspretrained import PretrainedEmbeddings
 
-class BeamSearch(object):
+class Beam(object):
     """Ordered beam of candidate outputs."""
 
-    def __init__(self, size, vocab_bosindex, vocab_eosindex, cuda=False):
+    def __init__(self, size, vocab_bosindex, vocab_eosindex, alpha, cuda=False):
         """Initialize params."""
         self.size = size
         self.done = False
         self.pad = vocab_eosindex
         self.bos = vocab_bosindex
         self.eos = vocab_eosindex
+        self.alpha = alpha
         self.tt = torch.cuda if cuda else torch
 
         # The score for each translation on the beam.
@@ -58,25 +63,32 @@ class BeamSearch(object):
         """Get the backpointer to the beam at this step."""
         return self.prevKs[-1]
 
-    #  Given prob over words for every last beam `wordLk` and attention
-    #   `attnOut`: Compute and update the beam search.
+    #  Given prob over words for every last beam `wordLk`: Compute and update
+    # the beam search.
     #
     # Parameters:
     #
     #     * `wordLk`- probs of advancing from the last step (K x words)
-    #     * `attnOut`- attention at the last step
     #
     # Returns: True if beam search is complete.
 
     def advance(self, workd_lk):
         """Advance the beam."""
-        num_words = workd_lk.size(0)
+        num_words = workd_lk.size(1)
 
-        # Sum the previous scores.
+        # Sum the previous scores and normalized by length
         if len(self.prevKs) > 0:
-            beam_lk = workd_lk + self.scores.unsqueeze(1).expand(-1, num_words).t()
+            sentence_length = len(self.nextYs)
+            beam_lk = workd_lk/sentence_length**self.alpha \
+                      + self.scores.unsqueeze(1).expand_as(workd_lk) \
+                      * (sentence_length-1)**self.alpha \
+                      / sentence_length**self.alpha
+            # Don't let EOS have children.
+            for i in range(self.nextYs[-1].size(0)):
+                if self.nextYs[-1][i].data[0] == self.eos:
+                    beam_lk[i] = -1e20
         else:
-            beam_lk = workd_lk
+            beam_lk = workd_lk[0]
 
         flat_beam_lk = beam_lk.view(-1)
 
@@ -103,7 +115,14 @@ class BeamSearch(object):
     def get_best(self):
         """Get the most likely candidate."""
         scores, ids = self.sort_best()
-        return scores[1], ids[1]
+        return scores[0], ids[0]
+
+    # Get the score of the best in the beam.
+    def get_best_k(self):
+        k = self.size
+        """Get the most likely candidate."""
+        scores, ids = self.sort_best()
+        return scores[:k], ids[:k]
 
     # Walk back to construct the full hypothesis.
     #
@@ -114,42 +133,21 @@ class BeamSearch(object):
     # Returns.
     #
     #     1. The hypothesis
-    #     2. The attention at each time step.
     def get_hyp(self, k):
         """Get hypotheses."""
         hyp = []
-        # print(len(self.prevKs), len(self.nextYs), len(self.attn))
         for j in range(len(self.prevKs) - 1, -1, -1):
             hyp.append(self.nextYs[j + 1][k])
             k = self.prevKs[j][k]
 
         return hyp[::-1]
 
-    # # Perform search on batched input sequence and return top
-    # # hypothesis for each
-    # def search(self, osequence):
-    #     hyps = []
-    #     for batch_sample in osequence:
-    #         for wordprob_dist in batch_sample:
-    #             print(wordprob_dist.unsqueeze(1))
-    #             self.advance(wordprob_dist.unsqueeze(1))
-    #             print("{}\n".format(self.get_hyp(1)[-1]))
-    #         hyps += [self.get_hyp(1)]
-    #     return hyps
-    #
-    # def greedy_search(self, model, padded_imageframes_batch, frame_sequence_lengths, \
-    #             padded_inputwords_batch, dummy_input_sequence_lengths):
-    #     done = False
-    #     while not done:
-    #         outputword_log_probabilities = model(padded_imageframes_batch, frame_sequence_lengths, \
-    # 											padded_inputwords_batch, dummy_input_sequence_lengths)
-    #         done = self.advance(outputword_log_probabilities.unsqueeze(1))
-    #         padded_inputwords_batch = self.get_hyp(1)[-1]
-    #     return self.get_hyp(1)
-
 if __name__=="__main__":
 
-    pretrainedEmbeddings = PretrainedEmbeddings({"word_embeddings" : torch.randn(10,3), "pretrained_embdim" : 3, "vocabulary_size":10})
+    pretrainedEmbeddings = PretrainedEmbeddings({"word_embeddings" : torch.randn(10,3),
+                                                "pretrained_embdim" : 3,
+                                                 "vocabulary_size":10,
+                                                 "embeddings_requires_grad": False})
 
     dict_args = {
     				'input_dim' : 3, #pretrainedEmbeddings.pretrained_embdim
@@ -157,7 +155,10 @@ if __name__=="__main__":
     				'rnn_type' : 'LSTM',
     				'vocabulary_size' : pretrainedEmbeddings.vocabulary_size,
     				'tie_weights' : True,
-    				'word_embeddings' : pretrainedEmbeddings.embeddings.weight
+    				'word_embeddings' : pretrainedEmbeddings.embeddings.weight,
+                    'vocabulary_bosindex': 1,
+                    'vocabulary_eosindex': 0,
+                    'pretrained_words_layer': pretrainedEmbeddings
     			}
 
     sentenceDecoder = SentenceDecoder(dict_args)
@@ -171,11 +172,10 @@ if __name__=="__main__":
             6: 'of', 7: 'the', 8: 'beam', 9: 'search'}
 
     vocab = Vocab()
-    beam = BeamSearch(1, vocab_eosindex = 0, vocab_bosindex=1, cuda=False)
+    beam = Beam(3, vocab_eosindex = 0, vocab_bosindex=1, alpha=0.7, cuda=False)
 
-    beam.advance(osequence[0][0].unsqueeze(1))
-    beam.get_hyp(0)
-    beam.advance(osequence[0][1].unsqueeze(1))
-    beam.get_hyp(0)
-    beam.advance(osequence[0][2].unsqueeze(1))
+    import random
+    i = random.randint(0,1)
+    beam.advance(osequence[i])
+    beam.get_current_origin()
     beam.get_hyp(0)
