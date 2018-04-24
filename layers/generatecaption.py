@@ -1,6 +1,7 @@
 from layers.beamsearch import Beam
 import torch.nn.functional as functional
 import torch
+from torch.autograd import Variable
 
 
 class GenerateCaption(object):
@@ -44,7 +45,10 @@ class GenerateCaption(object):
         self.osequence[self.step] = self.decoder_embedding_layer(h_t)
         cur_osequence_probs = functional.log_softmax(self.osequence[self.step],
                                                      dim=1)
-        self.osequence_probs_beams = cur_osequence_probs.expand(self.beam_width,-1)
+        self.osequence_probs_beams = cur_osequence_probs.clone()
+        for i in range(self.beam_width-1):
+            self.osequence_probs_beams = torch.cat([self.osequence_probs_beams,
+                                                    cur_osequence_probs.clone()])
 
         # Advance the beam and duplicate inputsequence by beam_width
         self.done = self.beam.advance(self.osequence_probs_beams)
@@ -81,9 +85,12 @@ class GenerateCaption(object):
             elif self.rnn_type == 'RNN':
                 pass
 
+            self.h_ts[beam_idx] = h_t
+            self.c_ts[beam_idx] = c_t
+
             osequence[self.step] = self.decoder_embedding_layer(h_t)
             cur_osequence_probs = functional.log_softmax(osequence[self.step], dim=1)
-            self.osequence_probs_beams[beam_idx] = cur_osequence_probs
+            self.osequence_probs_beams[beam_idx] = cur_osequence_probs.unsqueeze(0)
             beam_idx += 1
 
         # Advance the beam, get the new word embedding vectors
@@ -98,6 +105,9 @@ class GenerateCaption(object):
         self.isequences = [torch.cat([self.isequences[i],
                                       hyp_vector.unsqueeze(0)]) for
                            i, hyp_vector in enumerate(self.hyp_vectors)]
+
+        self.h_ts = [self.h_ts[origin.data[0]] for origin in self.hyp_origins]
+        self.c_ts = [self.c_ts[origin.data[0]] for origin in self.hyp_origins]
 
         if not self.done:
             for i, osequence in enumerate(self.osequences):

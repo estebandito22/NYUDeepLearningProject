@@ -30,7 +30,8 @@ from layers.wordspretrained import PretrainedEmbeddings
 class Beam(object):
     """Ordered beam of candidate outputs."""
 
-    def __init__(self, size, vocab_bosindex, vocab_eosindex, alpha, cuda=False):
+    def __init__(self, size, vocab_bosindex, vocab_eosindex, alpha, cuda=False,
+                 min_length=5):
         """Initialize params."""
         self.size = size
         self.done = False
@@ -38,6 +39,7 @@ class Beam(object):
         self.bos = vocab_bosindex
         self.eos = vocab_eosindex
         self.alpha = alpha
+        self.min_length = min_length
         self.tt = torch.cuda if cuda else torch
 
         # The score for each translation on the beam.
@@ -177,5 +179,4 @@ if __name__=="__main__":
     import random
     i = random.randint(0,1)
     beam.advance(osequence[i])
-    beam.get_current_origin()
     beam.get_hyp(0)
