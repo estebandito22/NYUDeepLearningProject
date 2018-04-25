@@ -66,8 +66,10 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 
 		#######Forward
 		model.eval()
-		outputword_log_probabilities, indexcaption = model(padded_imageframes_batch, frame_sequence_lengths, \
-															padded_inputwords_batch, dummy_input_sequence_lengths)
+		# outputword_log_probabilities, indexcaption = model(padded_imageframes_batch, frame_sequence_lengths, \
+		# 													padded_inputwords_batch, dummy_input_sequence_lengths)
+		indexcaption = model(padded_imageframes_batch, frame_sequence_lengths, \
+							padded_inputwords_batch, dummy_input_sequence_lengths)
 
 		#######Calculate Loss
 		# outputword_log_probabilities = outputword_log_probabilities.permute(0, 2, 1)
@@ -156,15 +158,20 @@ if __name__=="__main__":
 		else:
 			maplocation = 'cpu'
 		checkpoint = torch.load(model_filepath, map_location=maplocation)
+
+		if not 'embeddings_requires_grad' in checkpoint['dict_args']:
+			checkpoint['dict_args']['embeddings_requires_grad'] = False
+
 		model = CSAL(checkpoint['dict_args'])
 		model = nn.DataParallel(model)
-		print(checkpoint)
-		if not 'module.sentence_decoder_layer.pretrained_words_layer.embeddings.weight' \
-			in checkpoint['state_dict']:
+		# print(checkpoint['state_dict'].keys())
 
-			pretrained_words_layer = model.module.pretrained_words_layer
-			checkpoint['state_dict']['module.sentence_decoder_layer.pretrained_words_layer.embeddings.weight'] \
-				= pretrained_words_layer.embeddings.weight
+		# if not 'module.sentence_decoder_layer.pretrained_words_layer.embeddings.weight' \
+		# 	in checkpoint['state_dict']:
+		#
+		# 	pretrained_words_layer = model.module.pretrained_words_layer
+		# 	checkpoint['state_dict']['module.sentence_decoder_layer.pretrained_words_layer.embeddings.weight'] \
+		# 		= pretrained_words_layer.embeddings.weight
 
 		model.load_state_dict(checkpoint['state_dict'])
 

@@ -39,6 +39,8 @@ Thumbs.db
 # Python Cache
 __pycache__/
 *.pyc
+*.ipynb
+.ipynb_checkpoints
 
 # Project Specific
 /input/MSRVTT/*

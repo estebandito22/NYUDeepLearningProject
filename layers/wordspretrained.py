@@ -17,6 +17,7 @@ class PretrainedEmbeddings(nn.Module):
 
 		self.word_embdim = dict_args["word_embdim"]
 		self.vocabulary_size = dict_args["vocabulary_size"]
+		self.embeddings_requires_grad = dict_args["embeddings_requires_grad"]
 
 		self.embeddings = nn.Embedding(self.vocabulary_size, self.word_embdim)
 

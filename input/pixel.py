@@ -57,7 +57,10 @@ class Pixel():
 				file_time = time.time()
 				imageframes = [imagetotensor(imagefile) for imagefile in imagefiles]
 				frame_time = time.time()
-				imagefeatures = [self.pretrained(Variable(frame.unsqueeze(0).cuda()))[1].view(-1).unsqueeze(-1).unsqueeze(-1).data.cpu() for frame in imageframes]
+				if torch.cuda.is_available():
+					imagefeatures = [self.pretrained(Variable(frame.unsqueeze(0).cuda()))[1].view(-1).unsqueeze(-1).unsqueeze(-1).data.cpu() for frame in imageframes]
+				else:
+					imagefeatures = [self.pretrained(Variable(frame.unsqueeze(0)))[1].view(-1).unsqueeze(-1).unsqueeze(-1).data.cpu() for frame in imageframes]
 				#imagefeatures = self.pretrained(Variable(torch.stack(imageframes).cuda()))[1].data.cpu()
 				#imagefeatures = torch.randn(45, 1000)
 				#imagefeatures = imagefeatures.unsqueeze(-1).unsqueeze(-1)
@@ -91,8 +94,8 @@ if __name__ == '__main__':
 	pklfilepath = 'MSRVTT/trainvideo.pkl'
 	pixel = Pixel([('Dummy', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')], pklfilepath)
 
-	#pixel.create()
-	#pixel.save()
+	# pixel.create()
+	# pixel.save()
 	pixel.load()
 	print(len(pixel.get_pixel_vectors('video0')))
 	print(pixel.get_pixel_vectors('video1')[0])
