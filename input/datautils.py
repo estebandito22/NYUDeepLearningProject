@@ -12,8 +12,8 @@ def imagetotensor(imagepath):
 	image = Image.open(imagepath).convert('RGB')
 	
 	transform = transforms.Compose([
-        # transforms.Resize(256),
-        transforms.Scale(256),
+        transforms.Resize(256),
+        #transforms.Scale(256),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
         normalize,
