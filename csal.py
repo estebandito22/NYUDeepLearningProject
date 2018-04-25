@@ -5,7 +5,8 @@ import torch.nn.functional as functional
 
 from layers.wordspretrained import PretrainedEmbeddings
 from layers.visionpretrained import PreTrainedResnet
-from layers.languagemodel import LanguageModel
+from layers.sequencedecoder import SequenceDecoder
+from layers.sequenceencoder import SequenceEncoder
 
 import layers.utils as utils
 
@@ -27,14 +28,18 @@ class CSAL(nn.Module):
 		#self.vocabulary_bosindex = dict_args["vocabulary_bosindex"]
 		#self.vocabulary_eosindex = dict_args["vocabulary_eosindex"]
 
+		#FrameEncoderLayer
+		self.encoder_configuration = dict_args["encoder_configuration"]
+
 		#SentenceDecoderLayer
+		self.decoder_rnn_input_dim = dict_args["decoder_rnn_input_dim"]
 		self.decoder_rnn_hidden_dim = dict_args["decoder_rnn_hidden_dim"]
 		self.decoder_tie_weights = dict_args["decoder_tie_weights"]
 		self.decoder_rnn_type = dict_args["decoder_rnn_type"]
-
+		self.every_step = dict_args["every_step"]
 
 		#PretrainedVisionLayer
-		pretrained_vision_layer_args = dict_args
+		#pretrained_vision_layer_args = dict_args
 		#self.pretrained_vision_layer = PreTrainedResnet(pretrained_vision_layer_args)
 
 		#VisionFeatureDimRedLayer
@@ -44,17 +49,22 @@ class CSAL(nn.Module):
 		pretrained_words_layer_args = dict_args
 		self.pretrained_words_layer = PretrainedEmbeddings(pretrained_words_layer_args)
 
+		#FrameEncoderLayer
+		frame_encoder_layer_args = dict_args
+		self.frame_encoder_layer = SequenceEncoder(frame_encoder_layer_args)
+
 		#SentenceDecoderLayer
 		sentence_decoder_layer_args = {
-										'input_dim' : self.pretrained_embdim,
+										'input_dim' : self.decoder_rnn_input_dim,
 										'rnn_hdim' : self.decoder_rnn_hidden_dim,
 										'rnn_type' : self.decoder_rnn_type,
 										'vocabulary_size' : self.vocabulary_size,
 										'tie_weights' : self.decoder_tie_weights,
 										'word_embeddings' : self.pretrained_words_layer.embeddings.weight,
-										'pretrained_words_layer': self.pretrained_words_layer
+										'pretrained_words_layer': self.pretrained_words_layer,
+										'every_step': self.every_step
 									  }
-		self.sentence_decoder_layer = LanguageModel(sentence_decoder_layer_args)
+		self.sentence_decoder_layer = SequenceDecoder(sentence_decoder_layer_args)
 
 
 	def forward(self, videoframes, videoframes_lengths, inputwords, captionwords_lengths):
@@ -91,19 +101,16 @@ class CSAL(nn.Module):
 		#videoframefeatures_fc : batch_size*num_frames*1000
 		videoframefeatures_fc = utils.mask_sequence(videoframefeatures_fc, videoframes_mask)
 
-		videoframefeatures_fcmeanpooling = videoframefeatures_fc.sum(dim = 1)
-		videoframefeatures_fcmeanpooling = videoframefeatures_fcmeanpooling.div(videoframes_lengths.unsqueeze(1).float())
 
 		inputword_vectors = self.pretrained_words_layer(inputwords)
 		#inputword_vectors: batch_size*num_words*wembed_dim
 
 		if not self.training:
-			return self.sentence_decoder_layer.inference(videoframefeatures_fcmeanpooling, self.pretrained_words_layer)
+			return self.sentence_decoder_layer.inference(self.frame_encoder_layer, videoframefeatures_fc, videoframes_lengths, self.pretrained_words_layer)
 
 
 		#outputword_values = self.sentence_decoder_layer(inputword_vectors, videoframefeatures_fcmeanpooling, captionwords_mask)
-		# outputword_values = self.sentence_decoder_layer(inputword_vectors, videoframefeatures_fcmeanpooling)
-		outputword_log_probabilities = self.sentence_decoder_layer(inputword_vectors, videoframefeatures_fcmeanpooling)
+		outputword_log_probabilities = self.sentence_decoder_layer(inputword_vectors, self.frame_encoder_layer, videoframefeatures_fc, videoframes_lengths)
 		#outputword_values = batch_size*num_words*vocab_size
 
 		# outputword_log_probabilities = functional.log_softmax(outputword_values, dim=2)
@@ -119,15 +126,28 @@ if __name__=='__main__':
 	glove_embdim = 3
 	dict_args = {
 					"intermediate_layers" : ['layer4', 'fc'],
+					"pretrained_feature_size" : 1000,
+
 					"word_embeddings" : pretrained_wordvecs,
 					"word_embdim" : glove_embdim,
-                                        "use_pretrained_emb" : True,
-                                        "backprop_embeddings" : False,
+					"use_pretrained_emb" : True,
+					"backprop_embeddings" : False,
 					"vocabulary_size" : len(pretrained_wordvecs),
+
+					"encoder_configuration" : 'LSTMAttn',
+					"encoder_input_dim" : glove_embdim,
+					"encoder_rnn_type" : 'LSTM',
+					"encoder_rnn_hdim" : glove_embdim,
+					"encoder_num_layers" : 1,
+					"encoder_dropout_rate" : 0.2,
+					"encoderattn_projection_dim" : 2,
+					"encoderattn_query_dim" : glove_embdim,
+
+					"decoder_rnn_input_dim" : 2*glove_embdim, 
 					"decoder_rnn_hidden_dim" : glove_embdim,
 					"decoder_tie_weights" : True,
 					"decoder_rnn_type" : 'LSTM',
-					"pretrained_feature_size" : 1000
+					"every_step" : True
 				}
 	csal = CSAL(dict_args)
 	videoframes = Variable(torch.randn(2, 4, 1000, 1, 1))

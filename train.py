@@ -40,7 +40,8 @@ def train():
 	eval_batch_size = 1
 
 	print("Get train data...")
-	train_pkl_file = 'MSRVTT/trainvideo.pkl'
+	#train_pkl_file = 'MSRVTT/Pixel/Resnet1000/trainvideo.pkl'
+	train_pkl_file = 'MSRVTT/Pixel/Alexnet1000/trainvideo.pkl'
 	file_names = [('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')]
 	files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	train_pkl_path = os.path.join(cur_dir, input_dir, train_pkl_file)
@@ -67,22 +68,34 @@ def train():
 	vocabfile.close()
 
 	pretrained_wordvecs = glove.index2vec
+	#model_name = MP, MPAttn, LSTM, LSTMAttn for CSAL
+	hidden_dimension = 512 #glove_embdim
 	dict_args = {
 					"intermediate_layers" : ['layer4', 'fc'],
+					"pretrained_feature_size" : 1000,
+					#
 					"word_embeddings" : pretrained_wordvecs,
 					"word_embdim" : glove_embdim,
 					"vocabulary_size" : len(pretrained_wordvecs),
 					"use_pretrained_emb" : True,
-					"backprop_embeddings" : True,
-					"vocabulary_bosindex": vocab.word2index["<bos>"],
-					"vocabulary_eosindex": vocab.word2index["<eos>"],
-					#"decoder_rnn_hidden_dim" : glove_embdim,
-					"decoder_rnn_hidden_dim" : 512,
-					"decoder_tie_weights" : True,
+					"backprop_embeddings" : False,
+					#
+					"encoder_configuration" : 'LSTMAttn',
+					"encoder_input_dim" : hidden_dimension,
+					"encoder_rnn_type" : 'LSTM',
+					"encoder_rnn_hdim" : hidden_dimension,
+					"encoder_num_layers" : 1,
+					"encoder_dropout_rate" : 0.2,
+					"encoderattn_projection_dim" : hidden_dimension/2,
+					"encoderattn_query_dim" : hidden_dimension,
+					#
+					"decoder_rnn_hidden_dim" : hidden_dimension,
+					"decoder_tie_weights" : False,
 					"decoder_rnn_type" : 'LSTM',
-					"pretrained_feature_size" : 1000
+					"every_step": False
 				}
 	csal = CSAL(dict_args)
+	print(dict_args)
 
 	num_epochs = 500
 	learning_rate = 1
