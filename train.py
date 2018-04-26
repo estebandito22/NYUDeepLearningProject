@@ -33,7 +33,7 @@ def train():
 	data_parallel = True
 	frame_trunc_length = 45
 
-	train_batch_size = 32
+	train_batch_size = 128
 	train_num_workers = 0
 	train_pretrained = True
 	train_pklexist = True
@@ -41,8 +41,8 @@ def train():
 
 	print("Get train data...")
 	#train_pkl_file = 'MSRVTT/Pixel/Resnet1000/trainvideo.pkl'
-	train_pkl_file = 'MSRVTT/Pixel/Alexnet1000/trainvideo.pkl'
-	file_names = [('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')]
+	train_pkl_file = 'MSRVTT/Pixel/Alexnet1000/valvideo.pkl'
+	file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
 	files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	train_pkl_path = os.path.join(cur_dir, input_dir, train_pkl_file)
 
@@ -53,7 +53,7 @@ def train():
 	# files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	# val_dataloader = loader.get_val_data(files, vocab, glove, eval_batch_size)
 
-	modelname = 'csal2'
+	modelname = 'test'
 	save_dir = 'models/{}/'.format(modelname)
 	save_dir_path = os.path.join(cur_dir, save_dir)
 	if not os.path.exists(save_dir_path):
@@ -89,10 +89,13 @@ def train():
 					"encoderattn_projection_dim" : hidden_dimension/2,
 					"encoderattn_query_dim" : hidden_dimension,
 					#
+					"decoder_rnn_input_dim" : glove_embdim + hidden_dimension,
+					#"decoder_rnn_input_dim" : glove_embdim,
 					"decoder_rnn_hidden_dim" : hidden_dimension,
 					"decoder_tie_weights" : False,
 					"decoder_rnn_type" : 'LSTM',
-					"every_step": False
+					"every_step": True,
+					#"every_step": False
 				}
 	csal = CSAL(dict_args)
 	print(dict_args)
@@ -131,7 +134,7 @@ def train():
 				padded_outputwords_batch = padded_outputwords_batch.cuda(async=async)
 				output_sequence_lengths = output_sequence_lengths.cuda(async=async)
 				captionwords_mask = captionwords_mask.cuda(async=async)
-			print(padded_imageframes_batch.size())
+			#print(padded_imageframes_batch.size())
 			cuda_time = time.time()
 			#######Forward
 			csal = csal.train()
@@ -158,15 +161,15 @@ def train():
 
 			opt_time = time.time()
 			#######Report
-			if((i+1)%2 == 0):
+			if((i+1)%5 == 0):
 				print('Epoch: [{0}/{1}], Step: [{2}/{3}], Test Loss: {4}'.format( \
 							epoch+1, num_epochs, i+1, train_data_size//train_batch_size, loss.data[0]))
 
 
-			print("Load : {0}, Cuda : {1}, Model : {2}, Loss : {3}, Opt : {4}".format(start_time-load_time, load_time - cuda_time, cuda_time - model_time, model_time - loss_time, loss_time-opt_time))
+			#print("Load : {0}, Cuda : {1}, Model : {2}, Loss : {3}, Opt : {4}".format(start_time-load_time, load_time - cuda_time, cuda_time - model_time, model_time - loss_time, loss_time-opt_time))
 			start_time = time.time()
 
-		if(epoch%1 == 0): #After how many epochs
+		if(epoch%4 == 0): #After how many epochs
 			#Get Validation Loss to stop overriding
 			# val_loss, bleu = evaluator.evaluate(val_dataloader, csal, vocab)
 			# print("Validation Loss: {}\tValidation Scores: {}".format(val_loss, bleu))
