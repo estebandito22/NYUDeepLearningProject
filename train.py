@@ -41,8 +41,8 @@ def train():
 
 	print("Get train data...")
 	#train_pkl_file = 'MSRVTT/Pixel/Resnet1000/trainvideo.pkl'
-	train_pkl_file = 'MSRVTT/Pixel/Alexnet1000/valvideo.pkl'
-	file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
+	train_pkl_file = 'MSRVTT/Pixel/Alexnet1000/trainvideo.pkl'
+	file_names = [('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')]
 	files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	train_pkl_path = os.path.join(cur_dir, input_dir, train_pkl_file)
 
