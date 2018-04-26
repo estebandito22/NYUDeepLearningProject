@@ -31,7 +31,7 @@ def train():
 	glove_embdim = 300
 	glove_filepath = os.path.join(glove_dir, glove_filename)
 
-	data_parallel = True
+	data_parallel = False
 	frame_trunc_length = 45
 
 	train_batch_size = 16
@@ -41,10 +41,10 @@ def train():
 	eval_batch_size = 1
 
 	print("Get train data...")
-	spatial = False
+	spatial = True
 	#train_pkl_file = 'MSRVTT/Pixel/Resnet1000/trainvideo.pkl'
-	train_pkl_file = 'MSRVTT/Pixel/Alexnet1000/trainvideo.pkl'
-	#train_pkl_file = 'MSRVTT/Pixel/Alexnet25622/trainvideo.pkl'
+	if not spatial : train_pkl_file = 'MSRVTT/Pixel/Alexnet1000/trainvideo.pkl'
+	else: train_pkl_file = 'MSRVTT/Pixel/Alexnet25622/trainvideo.pkl'
 	file_names = [('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')]
 	files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	train_pkl_path = os.path.join(cur_dir, input_dir, train_pkl_file)
