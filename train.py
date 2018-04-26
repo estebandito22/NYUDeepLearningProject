@@ -34,28 +34,32 @@ def train():
 	data_parallel = True
 	frame_trunc_length = 45
 
-	train_batch_size = 128
+	train_batch_size = 16
 	train_num_workers = 0
 	train_pretrained = True
 	train_pklexist = True
 	eval_batch_size = 1
 
 	print("Get train data...")
+	spatial = False
 	#train_pkl_file = 'MSRVTT/Pixel/Resnet1000/trainvideo.pkl'
 	train_pkl_file = 'MSRVTT/Pixel/Alexnet1000/trainvideo.pkl'
+	#train_pkl_file = 'MSRVTT/Pixel/Alexnet25622/trainvideo.pkl'
 	file_names = [('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')]
 	files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	train_pkl_path = os.path.join(cur_dir, input_dir, train_pkl_file)
 
-	train_dataloader, vocab, glove, train_data_size = loader.get_train_data(files, train_pkl_path, glove_filepath, glove_embdim, batch_size=train_batch_size, num_workers=train_num_workers, pretrained = train_pretrained, pklexist = train_pklexist, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
+	train_dataloader, vocab, glove, train_data_size = loader.get_train_data(files, train_pkl_path, glove_filepath, glove_embdim, batch_size=train_batch_size, num_workers=train_num_workers, pretrained = train_pretrained, pklexist = train_pklexist, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length, spatial=spatial)
 
 	# print("Get validation data...")
 	# file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json.sample', 'MSRVTT/Frames')]
 	# files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	# val_dataloader = loader.get_val_data(files, vocab, glove, eval_batch_size)
 
-	modelname = 'test'
-	modeltype = 'csal' #'stal'
+	modelname = 'test1'
+
+	if spatial: modeltype = 'stal'
+	else: modeltype = 'csal'
 	save_dir = 'models/{}/'.format(modelname + modeltype)
 	save_dir_path = os.path.join(cur_dir, save_dir)
 	if not os.path.exists(save_dir_path):
@@ -100,7 +104,8 @@ def train():
 					#"every_step": False
 				}
 
-	'''hidden_dim = 512 #256
+	#SpatialTemporal, LSTMTrackSpatial, LSTMTrackSpatialTemporal
+	'''hidden_dim = 256 #256
 	dict_args = {
 
 					"word_embeddings" : pretrained_wordvecs,
@@ -109,7 +114,7 @@ def train():
 					"backprop_embeddings" : False,
 					"vocabulary_size" : len(pretrained_wordvecs),
 
-					"encoder_configuration" : 'LSTMTrackSpatialTemporal',
+					"encoder_configuration" : 'SpatialTemporal',
 					"frame_channel_dim" : 256,
 					"frame_spatial_dim" : 2,
 					"encoder_rnn_type" : 'LSTM',
@@ -119,14 +124,15 @@ def train():
 					"encoderattn_query_dim" : hidden_dim,
 
 					"decoder_rnn_word_dim" : glove_embdim,
-					"decoder_rnn_input_dim" : hidden_dim + hidden_dim, #channel_dim 
+					#"decoder_rnn_input_dim" : hidden_dim + 256,
+					"decoder_rnn_input_dim" : hidden_dim + hidden_dim,
 					"decoder_rnn_hidden_dim" : hidden_dim,
 					"decoder_rnn_type" : 'LSTM',
 					"every_step" : True
 				}'''
 	
-	if modeltype == 'csal' : csal = CSAL(dict_args)
-	elif modeltype == 'stal' : csal = STAL(dict_args)
+	if not spatial : csal = CSAL(dict_args)
+	else : csal = STAL(dict_args)
 	print(dict_args)
 
 	num_epochs = 500
@@ -207,7 +213,7 @@ def train():
 			#Early Stopping not required
 			if not os.path.isdir(os.path.join(save_dir, "epoch{}".format(epoch))):
 				os.makedirs(os.path.join(save_dir, "epoch{}".format(epoch)))
-			filename = 'csal' + '.pth'
+			filename = modeltype + '.pth'
 			file = open(os.path.join(save_dir, "epoch{}".format(epoch), filename), 'wb')
 			torch.save({'state_dict':csal.state_dict(), 'dict_args':dict_args}, file)
 			print('Saving the model to {}'.format(save_dir+"epoch{}".format(epoch)))

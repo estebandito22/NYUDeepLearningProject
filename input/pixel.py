@@ -57,7 +57,8 @@ class PreTrainedAlexnet(nn.Module):
 
 	def forward(self, x):
 		x = self.features(x)
-		x = nn.functional.avg_pool2d(x, 2, 2)
+		#x = nn.functional.avg_pool2d(x, 2, 2)
+		x = nn.functional.avg_pool2d(x, 3, 3)
 		#x = nn.functional.max_pool2d(x, 4, 1)
 		return x
 
@@ -114,9 +115,9 @@ class Pixel():
 
 if __name__ == '__main__':
 
-	pklfilepath = 'MSRVTT/Pixel/Alexnet25633/trainvideo.pkl'
+	pklfilepath = 'MSRVTT/Pixel/Alexnet25622/valvideo.pkl'
 	#pklfilepath = 'MSRVTT/valvideo.pkl'
-	pixel = Pixel([('Dummy', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')], pklfilepath)
+	pixel = Pixel([('Dummy', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')], pklfilepath)
 	#pixel = Pixel([('Dummy', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')], pklfilepath)
 
 	pixel.create()

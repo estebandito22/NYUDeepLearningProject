@@ -37,6 +37,7 @@ class Dataset(data.Dataset):
 		self.pretrained = False
 		self.data_parallel = False
 		self.frame_trunc_length = 45
+		self.spatial = False
 
 	def __len__(self):
 		return self.size
@@ -53,7 +54,9 @@ class Dataset(data.Dataset):
 	def set_pad_indices(self, vocab):
 		self.bos = vocab.word2index['<bos>']
 		self.eos = vocab.word2index['<eos>']
-		if self.pretrained: self.ipad = torch.zeros([1000,1,1])
+		if self.pretrained:
+			if not self.spatial: self.ipad = torch.zeros([1000,1,1])
+			else: self.ipad = torch.zeros([256,2,2])
 		else: self.ipad = torch.zeros([3,224,224]) #create zero tensor based on the resize value from dataiter
 
 	def add_video_vecs(self, pixel):
@@ -65,11 +68,12 @@ class Dataset(data.Dataset):
 	#def set_mode(self, mode):
 		#self.mode = mode
 
-	def set_flags(self, mode='train', data_parallel=False, frame_trunc_length=45, pretrained=False):
+	def set_flags(self, mode='train', data_parallel=False, frame_trunc_length=45, pretrained=False, spatial=False):
 		self.mode = mode
 		self.data_parallel = data_parallel
 		self.frame_trunc_length = frame_trunc_length
 		self.pretrained = pretrained
+		self.spatial = spatial
 
 	def create(self, vocab):
 		for captionsfilepath, trainvideoidspath, framesfolderpath in self.files:
