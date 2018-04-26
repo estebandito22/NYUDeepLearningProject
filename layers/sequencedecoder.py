@@ -3,14 +3,14 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as functional
 
-try:
-	import layers.utils as utils
-	from layers.wordspretrained import PretrainedEmbeddings
-	from layers.inference import BeamSearch
-except:
-	import utils as utils
-	from wordspretrained import PretrainedEmbeddings
-	from inference import BeamSearch
+try: import layers.utils as utils
+except: import utils as utils
+
+try: from layers.wordspretrained import PretrainedEmbeddings
+except: from wordspretrained import PretrainedEmbeddings
+
+try: from layers.inference import BeamSearch
+except: from inference import BeamSearch
 
 
 USE_CUDA = False
@@ -90,7 +90,6 @@ class SequenceDecoder(nn.Module):
 
 	#Works only with batch size of 1 as of now
 	def inference(self, encoderlayer, esequence, elengths, embeddding_layer):
-		#hidden_t: 1*hidden_dim
 
 		dict_args = {
 					'beamsize' : 2,
@@ -100,13 +99,13 @@ class SequenceDecoder(nn.Module):
 
 		beamsearch = BeamSearch(dict_args)
 
-		hidden_t = hidden_t.expand(dict_args['beamsize'], hidden_t.size(1)) #beamsize*hidden_dim
 		input_ix = Variable(torch.LongTensor([dict_args['eosindex']]).expand(dict_args['beamsize']))
-		#input_ix = Variable(torch.LongTensor([dict_args['eosindex']]))
 		if USE_CUDA: input_ix = input_ix.cuda()
 		input_t = embeddding_layer(input_ix) #beamsize*wemb_dim
 
-		if not self.every_step: h_t = encoderlayer(esequence, elengths)
+		if not self.every_step:
+			h_t = encoderlayer(esequence, elengths)
+			h_t = h_t.expand(dict_args['beamsize'], h_t.size(1)) #beamsize*hidden_dim
 		else: h_t = self.init_hidden(dict_args['beamsize'])
 
 		if self.rnn_type == 'LSTM': c_t = self.init_hidden(dict_args['beamsize'])
@@ -114,10 +113,10 @@ class SequenceDecoder(nn.Module):
 		for i in range(15):
 			if i!=0:
 				input_ix, hidden_ix = beamsearch.get_inputs()
-				input_t = pretrained_words_layer(input_ix) #beamsize*wemb_dim
+				input_t = embeddding_layer(input_ix) #beamsize*wemb_dim
 				#hidden_t = hidden_t.index_select(0, hidden_ix)
 				h_t = h_t.index_select(0, hidden_ix)
-				c_t = c_t.index_select(0, hidden_ix)
+				if self.rnn_type == 'LSTM': c_t = c_t.index_select(0, hidden_ix)
 				#print(hidden_ix.view(1,-1))
 			#h_t = hidden_t
 			input = input_t

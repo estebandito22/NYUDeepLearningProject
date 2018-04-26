@@ -13,6 +13,7 @@ import torch.optim as optim
 import input.dataloader as loader
 import layers.utils as utils
 from csal import CSAL
+from stal import STAL
 
 import evaluate as evaluator
 import test as tester
@@ -54,7 +55,8 @@ def train():
 	# val_dataloader = loader.get_val_data(files, vocab, glove, eval_batch_size)
 
 	modelname = 'test'
-	save_dir = 'models/{}/'.format(modelname)
+	modeltype = 'csal' #'stal'
+	save_dir = 'models/{}/'.format(modelname + modeltype)
 	save_dir_path = os.path.join(cur_dir, save_dir)
 	if not os.path.exists(save_dir_path):
 		os.makedirs(save_dir_path)
@@ -97,7 +99,34 @@ def train():
 					"every_step": True,
 					#"every_step": False
 				}
-	csal = CSAL(dict_args)
+
+	'''hidden_dim = 512 #256
+	dict_args = {
+
+					"word_embeddings" : pretrained_wordvecs,
+					"word_embdim" : glove_embdim,
+					"use_pretrained_emb" : True,
+					"backprop_embeddings" : False,
+					"vocabulary_size" : len(pretrained_wordvecs),
+
+					"encoder_configuration" : 'LSTMTrackSpatialTemporal',
+					"frame_channel_dim" : 256,
+					"frame_spatial_dim" : 2,
+					"encoder_rnn_type" : 'LSTM',
+					"encoder_rnn_hdim" : hidden_dim,
+					"encoder_dropout_rate" : 0.2,
+					"encoderattn_projection_dim" : hidden_dim/2,
+					"encoderattn_query_dim" : hidden_dim,
+
+					"decoder_rnn_word_dim" : glove_embdim,
+					"decoder_rnn_input_dim" : hidden_dim + hidden_dim, #channel_dim 
+					"decoder_rnn_hidden_dim" : hidden_dim,
+					"decoder_rnn_type" : 'LSTM',
+					"every_step" : True
+				}'''
+	
+	if modeltype == 'csal' : csal = CSAL(dict_args)
+	elif modeltype == 'stal' : csal = STAL(dict_args)
 	print(dict_args)
 
 	num_epochs = 500

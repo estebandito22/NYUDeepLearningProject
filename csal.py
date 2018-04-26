@@ -61,7 +61,7 @@ class CSAL(nn.Module):
 										'vocabulary_size' : self.vocabulary_size,
 										'tie_weights' : self.decoder_tie_weights,
 										'word_embeddings' : self.pretrained_words_layer.embeddings.weight,
-										'pretrained_words_layer': self.pretrained_words_layer,
+										#'pretrained_words_layer': self.pretrained_words_layer,
 										'every_step': self.every_step
 									  }
 		self.sentence_decoder_layer = SequenceDecoder(sentence_decoder_layer_args)
@@ -155,5 +155,8 @@ if __name__=='__main__':
 	inputwords = Variable(torch.LongTensor([[2,3,5], [7,9,1]]))
 	#outputwords = Variable(torch.LongTensor([[3,5,2], [9,7,1]]))
 	captionwords_lengths = Variable(torch.LongTensor([3,2]))
+	#csal.eval()
 	outputword_log_probabilities = csal(videoframes, videoframes_lengths, inputwords, captionwords_lengths)
 	print(outputword_log_probabilities)
+
+

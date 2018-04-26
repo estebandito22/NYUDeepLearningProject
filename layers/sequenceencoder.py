@@ -103,7 +103,7 @@ class SequenceEncoder(nn.Module):
 
 		if self.attention:
 			#print("Attention")
-			vector_sequence_attention, sequence_attention_weights = self.attention_function(isequence, queryvector, imask, softmax=False)
+			vector_sequence_attention, sequence_attention_weights = self.attention_function(isequence, queryvector, imask, softmax=True)
 			contextvector = vector_sequence_attention
 			#contextvector : batch_size*input_emb/hidden_dim
 		return contextvector
