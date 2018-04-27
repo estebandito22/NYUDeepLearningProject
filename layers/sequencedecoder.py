@@ -99,13 +99,17 @@ class SequenceDecoder(nn.Module):
 
 		beamsearch = BeamSearch(dict_args)
 
+		batch_size, num_words, iembed = esequence.size()
+		esequence =  esequence.expand(dict_args['beamsize'], num_words, iembed)
+		elengths = elenghts.expand(dict_args['beamsize'])
+
 		input_ix = Variable(torch.LongTensor([dict_args['eosindex']]).expand(dict_args['beamsize']))
 		if USE_CUDA: input_ix = input_ix.cuda()
 		input_t = embeddding_layer(input_ix) #beamsize*wemb_dim
 
 		if not self.every_step:
 			h_t = encoderlayer(esequence, elengths)
-			h_t = h_t.expand(dict_args['beamsize'], h_t.size(1)) #beamsize*hidden_dim
+			#h_t = h_t.expand(dict_args['beamsize'], h_t.size(1)) #beamsize*hidden_dim
 		else: h_t = self.init_hidden(dict_args['beamsize'])
 
 		if self.rnn_type == 'LSTM': c_t = self.init_hidden(dict_args['beamsize'])
