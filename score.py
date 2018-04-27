@@ -32,7 +32,7 @@ def evaluate(epoch, model_name, returntype = 'ALL'):
 	output_dir = 'output'
 	MSRVTT_dir = 'MSRVTT'
 	predcaptionsjson = 'epoch{}_predcaptions.json'.format(epoch)
-	valscoresjson = 'val_scores.json'
+	valscoresjson = 'epoch{}_valscores.json'.format(epoch)
 
 	#for Variables use volatile=True
 	if returntype == 'Bleu' or returntype == 'All':
@@ -56,23 +56,17 @@ if __name__=="__main__":
 	Usage: Example of command to use the previously trained model "baseline1"
 	from "epoch0" to generate predictions and evaluate on validaition.
 
-	python evaluate.py -p -m baseline1 -e epoch0
+	python evaluate.py -m baseline1 -e 100
 	"""
 
 	ap = argparse.ArgumentParser()
-	ap.add_argument("-p", "--predict", action="store_true", default=False,
-		required=False, help="Flag to load a pretrained model and predict.")
-	ap.add_argument("-s", "--batch_size", default=1, required=False,
-		help="If predict is True, the batch size to use during predictions.")
 	ap.add_argument("-m", "--saved_model_dir", required=False,
 		help="If predict True, the directory of the model you wish to load.")
 	ap.add_argument("-e", "--saved_model_epoch", required=False,
 		help="If predict True, the epoch you want to load e.g. 'epoch0'.")
 	args = vars(ap.parse_args())
 
-	PREDICT = args['predict']
-	EVAL_BATCH_SIZE = int(args['batch_size'])
-	EPOCH = int(args['saved_model_epoch'][5:])
+	EPOCH = int(args['saved_model_epoch'])
 
 	cur_dir = os.getcwd()
 	input_dir = 'input'
@@ -80,7 +74,7 @@ if __name__=="__main__":
 	MSRVTT_dir = 'MSRVTT'
 	models_dir = 'models'
 	saved_model_dir = args['saved_model_dir']
-	epoch_dir = args['saved_model_epoch']
+	epoch_dir = 'epoch'+args['saved_model_epoch']
 	csalfile = 'csal.pth'
 	glovefile = 'glove.pkl'
 	vocabfile = 'vocab.pkl'
@@ -93,7 +87,5 @@ if __name__=="__main__":
 	captions_filepath = os.path.join(cur_dir, input_dir, MSRVTT_dir, captionsjson)
 	preds_filepath = os.path.join(cur_dir, output_dir, MSRVTT_dir, saved_model_dir, predcaptionsjson)
 
-	if PREDICT == False:
-		bleu = evaluate(EPOCH,  saved_model_dir, returntype='Bleu')
-		print("Validation Scores: {}".format(bleu))
-
+	bleu = evaluate(EPOCH, saved_model_dir, returntype='Bleu')
+	print("Validation Scores: {}".format(bleu))

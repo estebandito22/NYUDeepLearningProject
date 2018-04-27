@@ -39,7 +39,7 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 	output_dir = 'output'
 	MSRVTT_dir = 'MSRVTT'
 	predcaptionsjson = 'epoch{}_predcaptions.json'.format(epoch)
-	valscoresjson = 'epoch{}_val_scores.json'.format(epoch)
+	valscoresjson = 'epoch{}_valscores.json'.format(epoch)
 
 	stringcaptions = []
 
@@ -157,21 +157,18 @@ if __name__=="__main__":
 			maplocation = None
 		else:
 			maplocation = 'cpu'
+
+		data_parallel = False
+		frame_trunc_length = 45
+		val_num_workers = 0
+		val_pretrained = True
+		val_pklexist = True
+
 		checkpoint = torch.load(model_filepath, map_location=maplocation)
 
-		if not 'embeddings_requires_grad' in checkpoint['dict_args']:
-			checkpoint['dict_args']['embeddings_requires_grad'] = False
-
-		model = CSAL(checkpoint['dict_args'])
-		model = nn.DataParallel(model)
-		# print(checkpoint['state_dict'].keys())
-
-		# if not 'module.sentence_decoder_layer.pretrained_words_layer.embeddings.weight' \
-		# 	in checkpoint['state_dict']:
-		#
-		# 	pretrained_words_layer = model.module.pretrained_words_layer
-		# 	checkpoint['state_dict']['module.sentence_decoder_layer.pretrained_words_layer.embeddings.weight'] \
-		# 		= pretrained_words_layer.embeddings.weight
+		if not spatial : model = CSAL(checkpoint['dict_args'])
+		else : model = STAL(checkpoint['dict_args'])
+		model = nn.DataParallel(model) if data_parallel else model
 
 		model.load_state_dict(checkpoint['state_dict'])
 
@@ -183,14 +180,11 @@ if __name__=="__main__":
 		vocab = pickle.load(vocabfile)
 		vocabfile.close()
 
-		data_parallel = True
-		frame_trunc_length = 45
-		val_num_workers = 0
-		val_pretrained = True
-		val_pklexist = True
-
 		print("Get validation data...")
-		val_pkl_file = 'MSRVTT/valvideo.pkl'
+		spatial = True
+		#val_pkl_file = 'MSRVTT/Pixel/Resnet1000/valvideo.pkl'
+		if not spatial : val_pkl_file = 'MSRVTT/Pixel/Alexnet1000/valvideo.pkl'
+		else: val_pkl_file = 'MSRVTT/Pixel/Alexnet25622/valvideo.pkl'
 		file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
 		files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 		val_pkl_path = os.path.join(cur_dir, input_dir, val_pkl_file)

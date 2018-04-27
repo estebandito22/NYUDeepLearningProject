@@ -37,7 +37,7 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 	output_dir = 'output'
 	MSRVTT_dir = 'MSRVTT'
 	predcaptionsjson = 'epoch{}_predcaptions.json'.format(epoch)
-	valscoresjson = 'val_scores.json'
+	valscoresjson = 'epoch{}_valscores.json'.format(epoch)
 
 	stringcaptions = []
 
@@ -80,21 +80,25 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 
 if __name__=="__main__":
 
-	'''python predict.py -p -m baseline1 -e epoch0'''
+	"""python predict.py -m baseline1 -e 100"""
+
 	ap = argparse.ArgumentParser()
-	ap.add_argument("-p", "--predict", action="store_true", default=False,
-		required=False, help="Flag to load a pretrained model and predict.")
-	ap.add_argument("-s", "--batch_size", default=1, required=False,
+	ap.add_argument("-bs", "--batch_size", default=1, required=False,
 		help="If predict is True, the batch size to use during predictions.")
 	ap.add_argument("-m", "--saved_model_dir", required=False,
 		help="If predict True, the directory of the model you wish to load.")
 	ap.add_argument("-e", "--saved_model_epoch", required=False,
 		help="If predict True, the epoch you want to load e.g. 'epoch0'.")
+	ap.add_argument("-vf", "--video_features", required=True,
+		help="Either Resnet or Alexnet")
+	ap.add_argument("-sp", "--spatial_features", action='store_true',
+		required=False, help="use spatial features")
 	args = vars(ap.parse_args())
 
-	PREDICT = args['predict']
 	EVAL_BATCH_SIZE = int(args['batch_size'])
-	EPOCH = int(args['saved_model_epoch'][5:])
+	EPOCH = int(args['saved_model_epoch'])
+	SPATIAL = args['spatial_features']
+	VID_FEATS = args['video_features']
 
 	cur_dir = os.getcwd()
 	input_dir = 'input'
@@ -102,7 +106,7 @@ if __name__=="__main__":
 	MSRVTT_dir = 'MSRVTT'
 	models_dir = 'models'
 	saved_model_dir = args['saved_model_dir']
-	epoch_dir = args['saved_model_epoch']
+	epoch_dir = 'epoch'+args['saved_model_epoch']
 	csalfile = 'csal.pth'
 	glovefile = 'glove.pkl'
 	vocabfile = 'vocab.pkl'
@@ -115,38 +119,52 @@ if __name__=="__main__":
 	captions_filepath = os.path.join(cur_dir, input_dir, MSRVTT_dir, captionsjson)
 	preds_filepath = os.path.join(cur_dir, output_dir, MSRVTT_dir, saved_model_dir, predcaptionsjson)
 
-	if PREDICT == True:
 
-		print("Loading previously trained model...")
-		if USE_CUDA == True:
-			maplocation = None
-		else:
-			maplocation = 'cpu'
-		checkpoint = torch.load(model_filepath, map_location=maplocation)
-		model = CSAL(checkpoint['dict_args'])
-		print(checkpoint['dict_args'])
-		model = nn.DataParallel(model)
-		model.load_state_dict(checkpoint['state_dict'])
+	print("Loading previously trained model...")
+	if USE_CUDA == True:
+		maplocation = None
+	else:
+		maplocation = 'cpu'
 
-		glovefile = open(glove_filepath, 'rb')
-		glove = pickle.load(glovefile)
-		glovefile.close()
+	data_parallel = False
+	frame_trunc_length = 45
+	val_num_workers = 0
+	val_pretrained = True
+	val_pklexist = True
 
-		vocabfile = open(vocab_filepath, 'rb')
-		vocab = pickle.load(vocabfile)
-		vocabfile.close()
+	spatial = SPATIAL
 
-		data_parallel = True
-		frame_trunc_length = 45
-		val_num_workers = 0
-		val_pretrained = True
-		val_pklexist = True
+	checkpoint = torch.load(model_filepath, map_location=maplocation)
 
-		print("Get validation data...")
-		val_pkl_file = 'MSRVTT/valvideo.pkl'
-		file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
-		files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
-		val_pkl_path = os.path.join(cur_dir, input_dir, val_pkl_file)
-		val_dataloader = loader.get_val_data(files, val_pkl_path, vocab, glove, batch_size=EVAL_BATCH_SIZE, num_workers=val_num_workers, pretrained=val_pretrained, pklexist= val_pklexist, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length)
+	if not spatial : model = CSAL(checkpoint['dict_args'])
+	else : model = STAL(checkpoint['dict_args'])
+	model = nn.DataParallel(model) if data_parallel else model
 
-		evaluate(val_dataloader, model, vocab, epoch=EPOCH, model_name=saved_model_dir, returntype='Bleu')
+	model.load_state_dict(checkpoint['state_dict'])
+
+	glovefile = open(glove_filepath, 'rb')
+	glove = pickle.load(glovefile)
+	glovefile.close()
+
+	vocabfile = open(vocab_filepath, 'rb')
+	vocab = pickle.load(vocabfile)
+	vocabfile.close()
+
+	print("Get validation data...")
+	if VID_FEATS == "Resnet":
+		val_pkl_file = 'MSRVTT/Pixel/Resnet1000/valvideo.pkl'
+	elif VID_FEATS == "Alexnet":
+		if not spatial : val_pkl_file = 'MSRVTT/Pixel/Alexnet1000/valvideo.pkl'
+		else: val_pkl_file = 'MSRVTT/Pixel/Alexnet25622/valvideo.pkl'
+	file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')]
+	files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
+	val_pkl_path = os.path.join(cur_dir, input_dir, val_pkl_file)
+	val_dataloader = loader.get_val_data(files, val_pkl_path, vocab, glove,
+	 									batch_size=EVAL_BATCH_SIZE,
+										num_workers=val_num_workers,
+										pretrained=val_pretrained,
+										pklexist= val_pklexist,
+										data_parallel=data_parallel,
+										frame_trunc_length=frame_trunc_length)
+
+	evaluate(val_dataloader, model, vocab, epoch=EPOCH, model_name=saved_model_dir, returntype='Bleu')
