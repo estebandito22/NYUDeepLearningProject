@@ -56,7 +56,7 @@ class BiDirEncoder(nn.Module):
 		hidden = self.init_hidden(batch_size) 
 		rnn_out, h_n = self.rnn(iembeds, hidden) #rnn_out: num_words*batch_size*num_directions.hidden_dim
 		if self.rnn_type == 'LSTM': h_n = h_n[0] #h_n: num_layers.num_directions*batch_size*hidden_dim
-		if self.use_birnn == False: h_n = h_n[-1].squeeze() #h_n: batch_size*hidden_dim
+		if self.use_birnn == False: h_n = h_n[-1] #h_n: batch_size*hidden_dim
 
 		(rnn_out, lengths_new) = nn.utils.rnn.pad_packed_sequence(rnn_out) #rnn_out: num_words*batch_size*num_directions.hidden_dim
 		rnn_out = rnn_out.permute(1,0,2) #rnn_out: batch_size*num_words*num_directions.hidden_dim
