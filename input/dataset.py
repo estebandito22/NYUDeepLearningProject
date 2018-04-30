@@ -37,6 +37,7 @@ class Dataset(data.Dataset):
 		self.pretrained = False
 		self.data_parallel = False
 		self.frame_trunc_length = 45
+		self.caption_trunc_length = 16
 		self.spatial = False
 
 	def __len__(self):
@@ -56,7 +57,8 @@ class Dataset(data.Dataset):
 		self.eos = vocab.word2index['<eos>']
 		if self.pretrained:
 			if not self.spatial: self.ipad = torch.zeros([1000,1,1])
-			else: self.ipad = torch.zeros([256,2,2])
+			#else: self.ipad = torch.zeros([256,2,2])
+			else: self.ipad = torch.zeros([512,2,2])
 		else: self.ipad = torch.zeros([3,224,224]) #create zero tensor based on the resize value from dataiter
 
 	def add_video_vecs(self, pixel):
@@ -133,8 +135,8 @@ class Dataset(data.Dataset):
 
 		if self.mode =='train':
 			imageframesbatch, inputwordsbatch, outputwordsbatch, videoidsbatch = zip(*mini_batch)
-			padded_inputwords_batch, input_sequence_lengths = get_padded_list_normal(inputwordsbatch, self.eos)
-			padded_outputwords_batch, output_sequence_lengths = get_padded_list_normal(outputwordsbatch, self.eos)
+			padded_inputwords_batch, input_sequence_lengths = get_padded_list_truncated(inputwordsbatch, self.eos, self.caption_trunc_length, tensor=False, strict=self.data_parallel)
+			padded_outputwords_batch, output_sequence_lengths = get_padded_list_truncated(outputwordsbatch, self.eos, self.caption_trunc_length, tensor=False, strict=self.data_parallel)
 			#padded_inputwordsvecs_batch = replace_indices_with_vecs(padded_inputwords_batch)
 			#padded_outputwordsvecs_batch = replace_indices_with_vecs(padded_outputwords_batch)
 

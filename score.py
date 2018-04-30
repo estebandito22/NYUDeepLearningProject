@@ -66,7 +66,8 @@ if __name__=="__main__":
 		help="If predict True, the epoch you want to load e.g. 'epoch0'.")
 	args = vars(ap.parse_args())
 
-	EPOCH = int(args['saved_model_epoch'])
+	#EPOCH = int(args['saved_model_epoch'])
+	EPOCHS = args['saved_model_epoch'].split(',')
 
 	cur_dir = os.getcwd()
 	input_dir = 'input'
@@ -79,13 +80,23 @@ if __name__=="__main__":
 	glovefile = 'glove.pkl'
 	vocabfile = 'vocab.pkl'
 	captionsjson = 'captions.json'
-	predcaptionsjson = 'epoch{}_predcaptions.json'.format(EPOCH)
-	valscoresjson = 'epoch{}_valscores.json'.format(EPOCH)
+	#predcaptionsjson = 'epoch{}_predcaptions.json'.format(EPOCH)
+	#valscoresjson = 'epoch{}_valscores.json'.format(EPOCH)
 	glove_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, glovefile)
 	vocab_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, vocabfile)
 	model_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, epoch_dir, csalfile)
 	captions_filepath = os.path.join(cur_dir, input_dir, MSRVTT_dir, captionsjson)
-	preds_filepath = os.path.join(cur_dir, output_dir, MSRVTT_dir, saved_model_dir, predcaptionsjson)
+	#preds_filepath = os.path.join(cur_dir, output_dir, MSRVTT_dir, saved_model_dir, predcaptionsjson)
 
-	bleu = evaluate(EPOCH, saved_model_dir, returntype='Bleu')
-	print("Validation Scores: {}".format(bleu))
+	valbleus = []
+	for EPOCH in EPOCHS:
+		EPOCH = int(EPOCH)
+		bleu = evaluate(EPOCH, saved_model_dir, returntype='Bleu')
+		valbleus.append(bleu)
+	print("##########################################")
+	for i,EPOCH in enumerate(EPOCHS):
+		bleu = valbleus[i]
+		print("Validation Scores: {}".format(bleu))
+		print('EPOCH = ', EPOCH)
+		print("##########################################")
+#python score.py -m SpatTempstal -e 12

@@ -37,6 +37,7 @@ class CSAL(nn.Module):
 		self.decoder_tie_weights = dict_args["decoder_tie_weights"]
 		self.decoder_rnn_type = dict_args["decoder_rnn_type"]
 		self.every_step = dict_args["every_step"]
+		self.decoder_dropout_rate = dict_args['decoder_dropout_rate']
 
 		#PretrainedVisionLayer
 		#pretrained_vision_layer_args = dict_args
@@ -62,7 +63,8 @@ class CSAL(nn.Module):
 										'tie_weights' : self.decoder_tie_weights,
 										'word_embeddings' : self.pretrained_words_layer.embeddings.weight,
 										#'pretrained_words_layer': self.pretrained_words_layer,
-										'every_step': self.every_step
+										'every_step': self.every_step,
+										'dropout_rate' : self.decoder_dropout_rate
 									  }
 		self.sentence_decoder_layer = SequenceDecoder(sentence_decoder_layer_args)
 
@@ -90,16 +92,20 @@ class CSAL(nn.Module):
 		#videoframefeatures_fc = videoframefeatures[1]
 		#videoframefeatures_fc : batch_size.num_frames*1000
 
+		
 		videoframes = videoframes.contiguous()
-		batch_size, num_frames, num_features, _, _ = videoframes.size()
+		batch_size, num_frames, num_features, H, W = videoframes.size()
 
-		videoframefeatures_fc = videoframes.view(-1, num_features).contiguous()
-		videoframefeatures_fc = self.vision_feature_dimred_layer(videoframefeatures_fc)
-		#videoframefeatures_fc : batch_size.num_frames*rnn_hdim
-		_, feature_dim = videoframefeatures_fc.size()
-		videoframefeatures_fc = videoframefeatures_fc.view(batch_size, num_frames, feature_dim)
-		#videoframefeatures_fc : batch_size*num_frames*1000
-		videoframefeatures_fc = utils.mask_sequence(videoframefeatures_fc, videoframes_mask)
+		if H == 1:
+			videoframefeatures_fc = videoframes.view(-1, num_features).contiguous()
+			videoframefeatures_fc = self.vision_feature_dimred_layer(videoframefeatures_fc)
+			#videoframefeatures_fc : batch_size.num_frames*rnn_hdim
+			_, feature_dim = videoframefeatures_fc.size()
+			videoframefeatures_fc = videoframefeatures_fc.view(batch_size, num_frames, feature_dim)
+			#videoframefeatures_fc : batch_size*num_frames*1000
+			videoframefeatures_fc = utils.mask_sequence(videoframefeatures_fc, videoframes_mask)
+		else:
+			videoframefeatures_fc = videoframes
 
 
 		inputword_vectors = self.pretrained_words_layer(inputwords)
@@ -134,7 +140,7 @@ if __name__=='__main__':
 					"backprop_embeddings" : False,
 					"vocabulary_size" : len(pretrained_wordvecs),
 
-					"encoder_configuration" : 'LSTMAttn',
+					"encoder_configuration" : 'LSTM',
 					"encoder_input_dim" : glove_embdim,
 					"encoder_rnn_type" : 'LSTM',
 					"encoder_rnn_hdim" : glove_embdim,
@@ -147,15 +153,16 @@ if __name__=='__main__':
 					"decoder_rnn_hidden_dim" : glove_embdim,
 					"decoder_tie_weights" : True,
 					"decoder_rnn_type" : 'LSTM',
+					"decoder_dropout_rate" : 0.2,
 					"every_step" : True
 				}
 	csal = CSAL(dict_args)
-	videoframes = Variable(torch.randn(2, 4, 1000, 1, 1))
-	videoframes_lengths = Variable(torch.LongTensor([4,2]))
-	inputwords = Variable(torch.LongTensor([[2,3,5], [7,9,1]]))
+	videoframes = Variable(torch.randn(1, 4, 1000, 1, 1))
+	videoframes_lengths = Variable(torch.LongTensor([4]))
+	inputwords = Variable(torch.LongTensor([[2,3,5]]))
 	#outputwords = Variable(torch.LongTensor([[3,5,2], [9,7,1]]))
-	captionwords_lengths = Variable(torch.LongTensor([3,2]))
-	#csal.eval()
+	captionwords_lengths = Variable(torch.LongTensor([3]))
+	csal.eval()
 	outputword_log_probabilities = csal(videoframes, videoframes_lengths, inputwords, captionwords_lengths)
 	print(outputword_log_probabilities)
 

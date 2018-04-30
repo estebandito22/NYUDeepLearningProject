@@ -25,8 +25,10 @@ class STAL(nn.Module):
 		self.decoder_rnn_hidden_dim = dict_args["decoder_rnn_hidden_dim"]
 		self.decoder_rnn_type = dict_args["decoder_rnn_type"]
 		self.every_step = dict_args["every_step"]
-
-
+		self.decoder_top_dropout_rate = dict_args["decoder_top_dropout_rate"]
+		self.decoder_bottom_dropout_rate = dict_args["decoder_bottom_dropout_rate"]
+		self.decoder_residual_connection = dict_args["residual_connection"]	
+	
 		#PretrainedWordsLayer
 		pretrained_words_layer_args = dict_args
 		self.pretrained_words_layer = PretrainedEmbeddings(pretrained_words_layer_args)
@@ -42,7 +44,10 @@ class STAL(nn.Module):
 										'rnn_hdim' : self.decoder_rnn_hidden_dim,
 										'rnn_type' : self.decoder_rnn_type,
 										'vocabulary_size' : self.vocabulary_size,
-										'every_step': self.every_step
+										'every_step': self.every_step,
+										'top_dropout_rate' : self.decoder_top_dropout_rate,
+										'bottom_dropout_rate' : self.decoder_bottom_dropout_rate,
+										'residual_connection' : self.decoder_residual_connection
 									  }
 		self.sentence_decoder_layer = VideoCaptionDecoder(sentence_decoder_layer_args)
 
@@ -105,15 +110,18 @@ if __name__=='__main__':
 					"decoder_rnn_input_dim" : hidden_dim + hidden_dim, #channel_dim 
 					"decoder_rnn_hidden_dim" : hidden_dim,
 					"decoder_rnn_type" : 'LSTM',
-					"every_step" : True
+					"every_step" : True,
+					"decoder_top_dropout_rate" : 0.2,
+                                        "decoder_bottom_dropout_rate" : 0.2,
+                                        "residual_connection" : True
 				}
 	stal = STAL(dict_args)
 
-	videoframes = Variable(torch.randn(2, 4, 256, 2, 2))
-	videoframes_lengths = Variable(torch.LongTensor([4,2]))
-	inputwords = Variable(torch.LongTensor([[2,3,5], [7,9,1]]))
+	videoframes = Variable(torch.randn(1, 4, 256, 2, 2))
+	videoframes_lengths = Variable(torch.LongTensor([3]))
+	inputwords = Variable(torch.LongTensor([[2,3,5]]))
 	#outputwords = Variable(torch.LongTensor([[3,5,2], [9,7,1]]))
-	captionwords_lengths = Variable(torch.LongTensor([3,2]))
+	captionwords_lengths = Variable(torch.LongTensor([3]))
 	outputword_log_probabilities = stal(videoframes, videoframes_lengths, inputwords, captionwords_lengths)
 	#print(outputword_log_probabilities)
 

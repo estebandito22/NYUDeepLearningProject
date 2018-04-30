@@ -27,8 +27,13 @@ class VideoCaptionDecoder(nn.Module):
 		self.hidden_dim = dict_args['rnn_hdim']
 		self.rnn_type = dict_args['rnn_type']
 		self.vocab_size = dict_args["vocabulary_size"]
-
+		self.top_dropout_rate = dict_args['top_dropout_rate']
+		self.bottom_dropout_rate = dict_args['bottom_dropout_rate']		
+		self.residual_connection = dict_args["residual_connection"]
 		self.every_step = dict_args["every_step"]
+
+		self.top_dropout_layer = nn.Dropout(p=self.top_dropout_rate)
+		self.bottom_dropout_layer = nn.Dropout(p=self.bottom_dropout_rate)
 
 		if self.rnn_type == 'LSTM':
 			self.toprnn = nn.LSTMCell(self.input_dim, self.hidden_dim)
@@ -68,7 +73,7 @@ class VideoCaptionDecoder(nn.Module):
 
 		for step in range(num_words):
 			word = isequence[step]
-
+			word = self.bottom_dropout_layer(word)
 			if self.rnn_type == 'LSTM':
 				h_tbottom, c_tbottom = self.bottomrnn(word, (h_tbottom, c_tbottom)) #h_t: batch_size*hidden_dim
 			elif self.rnn_type == 'GRU':
@@ -78,6 +83,7 @@ class VideoCaptionDecoder(nn.Module):
 
 			input = h_tbottom
 			if self.every_step: input = torch.cat((encoderlayer(esequence, elengths, h_tbottom, h_ttop), input), dim = 1)
+			input = self.top_dropout_layer(input)
 			if self.rnn_type == 'LSTM':
 				h_ttop, c_ttop = self.toprnn(input, (h_ttop, c_ttop)) #h_t: batch_size*hidden_dim
 			elif self.rnn_type == 'GRU':
@@ -85,7 +91,10 @@ class VideoCaptionDecoder(nn.Module):
 			elif self.rnn_type == 'RNN':
 				pass
 
-			osequence[step] = self.linear(h_ttop) #batch_size*vocab_size
+                        h_tout = h_ttop
+                        if self.residual_connection:
+                                h_tout = h_tbottom + h_ttop
+			osequence[step] = self.linear(h_tout) #batch_size*vocab_size
 
 		osequence = osequence.permute(1,0,2)
 
@@ -100,12 +109,17 @@ class VideoCaptionDecoder(nn.Module):
 	def inference(self, encoderlayer, esequence, elengths, embeddding_layer):
 
 		dict_args = {
-					'beamsize' : 2,
+					'beamsize' : 1,
 					'eosindex' : 0, #remove hardcoding
 					'bosindex' : 1  #remove hardcoding
 					} 
 
 		beamsearch = BeamSearch(dict_args)
+
+		batch_size, num_frames, C, H, W = esequence.size()
+		esequence =  esequence.expand(dict_args['beamsize'], num_frames, C, H, W)
+		elengths = elengths.expand(dict_args['beamsize'])
+		
 
 		word_ix = Variable(torch.LongTensor([dict_args['eosindex']]).expand(dict_args['beamsize']))
 		#word_ix = Variable(torch.LongTensor([dict_args['eosindex']]))
@@ -114,7 +128,7 @@ class VideoCaptionDecoder(nn.Module):
 
 		if not self.every_step:
 			h_ttop = encoderlayer(esequence, elengths)
-			h_ttop = h_ttop.expand(dict_args['beamsize'], h_ttop.size(1)) #beamsize*hidden_dim
+			#h_ttop = h_ttop.expand(dict_args['beamsize'], h_ttop.size(1)) #beamsize*hidden_dim
 		else: h_ttop = self.init_hidden(dict_args['beamsize'])
 
 		h_tbottom = self.init_hidden(dict_args['beamsize'])
@@ -153,7 +167,10 @@ class VideoCaptionDecoder(nn.Module):
 			elif self.rnn_type == 'RNN':
 				pass
 
-			ovalues = self.linear(h_ttop) #beamsize*vocab_size
+			h_tout = h_ttop
+			if self.residual_connection:
+				h_tout = h_tbottom + h_ttop
+			ovalues = self.linear(h_tout) #beamsize*vocab_size
 			oprobs = functional.log_softmax(ovalues, dim=1)
 			stop = beamsearch.step(oprobs, i)
 			if stop:

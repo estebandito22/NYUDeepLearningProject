@@ -32,10 +32,18 @@ class VideoFrameEncoder(nn.Module):
 		self.spatial_dim = dict_args['frame_spatial_dim']
 
 		self.projection_dim = dict_args['encoderattn_projection_dim']
+		self.use_linear = dict_args["encoder_linear"]
 
+		if self.use_linear:
+			self.channelred_dim = dict_args["frame_channelred_dim"]
+			self.linear = nn.Linear(self.channel_dim, self.channelred_dim)
+			self.channel_dim = self.channelred_dim
+	
 		self.recurrent = None
 		self.spatialattention = None
 		self.temporalattention = None
+
+		self.dropout_layer = nn.Dropout(p=self.dropout_rate)
 
 		if self.configuration == 'LSTMTrackSpatial':
 			self.recurrent, self.spatialattention, self.temporalattention = True, True, False
@@ -96,6 +104,8 @@ class VideoFrameEncoder(nn.Module):
 		#temporalqueryvector Attention over hidden states of tracking LSTM
 
 		contextvector, temporalvectors, spatialvectors = None, None, None
+		
+		isequence = self.dropout_layer(isequence)		
 
 		batch_size, num_frames, channel_dim, height, width = isequence.size()
 		isequence = isequence.view(batch_size, num_frames, channel_dim, -1)
@@ -104,6 +114,11 @@ class VideoFrameEncoder(nn.Module):
 		#isequence : num_frames*batch_size*num_blocks*channel_dim
 		num_blocks = isequence.size(2)
 
+		if self.use_linear:
+			isequence = functional.relu(self.linear(isequence))
+
+		#Dropout?
+	
 		if self.temporalattention:
 			temporalvectors = Variable(isequence.data.new(num_frames, batch_size, self.context_dim).zero_())
 

@@ -27,6 +27,8 @@ class SequenceDecoder(nn.Module):
 		self.rnn_type = dict_args['rnn_type']
 		self.vocab_size = dict_args["vocabulary_size"]
 		self.tie_weights = dict_args["tie_weights"]
+		self.dropout_rate = dict_args['dropout_rate']
+
 		if self.tie_weights:
 			self.word_embeddings = dict_args["word_embeddings"]
 
@@ -34,6 +36,7 @@ class SequenceDecoder(nn.Module):
 		#Passed as argument to inference function instead
 		#self.pretrained_words_layer = dict_args['pretrained_words_layer']
 
+		self.dropout_layer = nn.Dropout(p=self.dropout_rate)
 
 		if self.rnn_type == 'LSTM':
 			self.rnn = nn.LSTMCell(self.input_dim, self.hidden_dim) #ToDO
@@ -69,6 +72,7 @@ class SequenceDecoder(nn.Module):
 		for step in range(num_words):
 			input = isequence[step]
 			if self.every_step: input = torch.cat((encoderlayer(esequence, elengths, h_t), input), dim = 1)
+			input = self.dropout_layer(input)
 			if self.rnn_type == 'LSTM':
 				h_t, c_t = self.rnn(input, (h_t, c_t)) #h_t: batch_size*hidden_dim
 			elif self.rnn_type == 'GRU':
@@ -92,7 +96,7 @@ class SequenceDecoder(nn.Module):
 	def inference(self, encoderlayer, esequence, elengths, embeddding_layer):
 
 		dict_args = {
-					'beamsize' : 2,
+					'beamsize' : 1,
 					'eosindex' : 0, #remove hardcoding
 					'bosindex' : 1  #remove hardcoding
 					} 
@@ -101,7 +105,7 @@ class SequenceDecoder(nn.Module):
 
 		batch_size, num_words, iembed = esequence.size()
 		esequence =  esequence.expand(dict_args['beamsize'], num_words, iembed)
-		elengths = elenghts.expand(dict_args['beamsize'])
+		elengths = elengths.expand(dict_args['beamsize'])
 
 		input_ix = Variable(torch.LongTensor([dict_args['eosindex']]).expand(dict_args['beamsize']))
 		if USE_CUDA: input_ix = input_ix.cuda()
@@ -125,14 +129,12 @@ class SequenceDecoder(nn.Module):
 			#h_t = hidden_t
 			input = input_t
 			if self.every_step: input = torch.cat((encoderlayer(esequence, elengths, h_t), input), dim = 1)
-			
 			if self.rnn_type == 'LSTM':
 				h_t, c_t = self.rnn(input, (h_t, c_t)) #h_t: beamsize*hidden_dim
 			elif self.rnn_type == 'GRU':
 				h_t = self.rnn(input, h_t) #h_t: beamsize*hidden_dim
 			elif self.rnn_type == 'RNN':
 				pass
-
 			#hidden_t = h_t
 			ovalues = self.linear(h_t) #beamsize*vocab_size
 			oprobs = functional.log_softmax(ovalues, dim=1)

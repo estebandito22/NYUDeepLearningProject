@@ -13,6 +13,7 @@ import torch.optim as optim
 import input.dataloader as loader
 import layers.utils as utils
 from csal import CSAL
+from stal import STAL
 
 try:
 	from layers.wordspretrained import PretrainedEmbeddings
@@ -25,12 +26,20 @@ if torch.cuda.is_available():
 	USE_CUDA = True
 
 def _caption(hyp, videoid, vocab):
-	generatedstring = ' '.join([str(vocab.index2word[index]) for index in hyp[1:-1]])
+	generatedstring = ' '.join([str(vocab.index2word[index.cpu().item()]) for index in hyp[1:-1]])
 	string_hyp = {'videoid': str(videoid), 'captions': [generatedstring]}
-	print(string_hyp)
+	#print(string_hyp)
 	return string_hyp
 
-def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
+def evaluate(dataloader, model_filepath, vocab, epoch, model_name, spatial, map_location, returntype = 'ALL'):
+
+        checkpoint = torch.load(model_filepath, map_location=map_location)
+	print(checkpoint['dict_args'])
+        if not spatial : model = CSAL(checkpoint['dict_args'])
+        else : model = STAL(checkpoint['dict_args'])
+        model = nn.DataParallel(model) if data_parallel else model
+
+        model.load_state_dict(checkpoint['state_dict'])
 
 	cur_dir = os.getcwd()
 	input_dir = 'input'
@@ -80,7 +89,7 @@ def evaluate(dataloader, model, vocab, epoch, model_name, returntype = 'ALL'):
 
 if __name__=="__main__":
 
-	"""python predict.py -m baseline1 -e 100"""
+	"""python predict.py -m baseline1 -e 100 -vf Alexnet -sp True"""
 
 	ap = argparse.ArgumentParser()
 	ap.add_argument("-bs", "--batch_size", default=1, required=False,
@@ -96,9 +105,11 @@ if __name__=="__main__":
 	args = vars(ap.parse_args())
 
 	EVAL_BATCH_SIZE = int(args['batch_size'])
-	EPOCH = int(args['saved_model_epoch'])
+	#EPOCH = int(args['saved_model_epoch'])
 	SPATIAL = args['spatial_features']
 	VID_FEATS = args['video_features']
+	EPOCHS = args['saved_model_epoch'].split(',')
+	print(EPOCHS)
 
 	cur_dir = os.getcwd()
 	input_dir = 'input'
@@ -106,18 +117,19 @@ if __name__=="__main__":
 	MSRVTT_dir = 'MSRVTT'
 	models_dir = 'models'
 	saved_model_dir = args['saved_model_dir']
-	epoch_dir = 'epoch'+args['saved_model_epoch']
-	csalfile = 'csal.pth'
+	#epoch_dir = 'epoch'+args['saved_model_epoch']
+	#csalfile = 'csal.pth'
+	csalfile = 'stal.pth'
 	glovefile = 'glove.pkl'
 	vocabfile = 'vocab.pkl'
 	captionsjson = 'captions.json'
-	predcaptionsjson = 'epoch{}_predcaptions.json'.format(EPOCH)
-	valscoresjson = 'epoch{}_valscores.json'.format(EPOCH)
+	#predcaptionsjson = 'epoch{}_predcaptions.json'.format(EPOCH)
+	#valscoresjson = 'epoch{}_valscores.json'.format(EPOCH)
 	glove_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, glovefile)
 	vocab_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, vocabfile)
-	model_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, epoch_dir, csalfile)
-	captions_filepath = os.path.join(cur_dir, input_dir, MSRVTT_dir, captionsjson)
-	preds_filepath = os.path.join(cur_dir, output_dir, MSRVTT_dir, saved_model_dir, predcaptionsjson)
+	#model_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, epoch_dir, csalfile)
+	#captions_filepath = os.path.join(cur_dir, input_dir, MSRVTT_dir, captionsjson)
+	#preds_filepath = os.path.join(cur_dir, output_dir, MSRVTT_dir, saved_model_dir, predcaptionsjson)
 
 
 	print("Loading previously trained model...")
@@ -134,13 +146,13 @@ if __name__=="__main__":
 
 	spatial = SPATIAL
 
-	checkpoint = torch.load(model_filepath, map_location=maplocation)
+	#checkpoint = torch.load(model_filepath, map_location=maplocation)
 
-	if not spatial : model = CSAL(checkpoint['dict_args'])
+	'''if not spatial : model = CSAL(checkpoint['dict_args'])
 	else : model = STAL(checkpoint['dict_args'])
 	model = nn.DataParallel(model) if data_parallel else model
 
-	model.load_state_dict(checkpoint['state_dict'])
+	model.load_state_dict(checkpoint['state_dict'])'''
 
 	glovefile = open(glove_filepath, 'rb')
 	glove = pickle.load(glovefile)
@@ -152,7 +164,7 @@ if __name__=="__main__":
 
 	print("Get validation data...")
 	if VID_FEATS == "Resnet":
-		val_pkl_file = 'MSRVTT/Pixel/Resnet1000/valvideo.pkl'
+		val_pkl_file = 'MSRVTT/Pixel/Resnet51222/valvideo.pkl'
 	elif VID_FEATS == "Alexnet":
 		if not spatial : val_pkl_file = 'MSRVTT/Pixel/Alexnet1000/valvideo.pkl'
 		else: val_pkl_file = 'MSRVTT/Pixel/Alexnet25622/valvideo.pkl'
@@ -167,4 +179,10 @@ if __name__=="__main__":
 										data_parallel=data_parallel,
 										frame_trunc_length=frame_trunc_length)
 
-	evaluate(val_dataloader, model, vocab, epoch=EPOCH, model_name=saved_model_dir, returntype='Bleu')
+	for EPOCH in EPOCHS:
+		epoch_dir = 'epoch'+EPOCH
+		EPOCH = int(EPOCH)
+		model_filepath = os.path.join(cur_dir, models_dir, saved_model_dir, epoch_dir, csalfile)
+		evaluate(val_dataloader, model_filepath, vocab, epoch=EPOCH, model_name=saved_model_dir, spatial=spatial, map_location=maplocation, returntype='Bleu')
+
+#python predict.py -m SpatTempstal -e 12 -vf Alexnet -sp

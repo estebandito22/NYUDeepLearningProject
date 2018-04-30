@@ -32,6 +32,10 @@ class SequenceEncoder(nn.Module):
 		self.inputvector = None
 		self.recurrent, self.attention = None, None
 
+		self.dropout_layer = nn.Dropout(p=self.dropout_rate)
+		
+		#self.linear = nn.Linear(self.input_dim, self.input_dim)
+		
 		if self.configuration == 'MP':
 			self.recurrent, self.attention = False, False
 		elif self.configuration == 'LSTM':
@@ -74,6 +78,14 @@ class SequenceEncoder(nn.Module):
 	def forward(self, isequence, ilenghts, queryvector = None):
 		#isequence : batch_size*num_steps*input_emb
 		#ilenghts : batch_size
+
+		if isequence.dim() == 5:
+			bs, nf, c, h, w = isequence.size()
+			isequence = isequence.view(bs,nf,c,-1)
+			isequence = isequence.sum(dim=-1)
+			isequence = isequence/(h*w)
+		isequence = self.dropout_layer(isequence)
+		#isequence = functional.relu(self.linear(isequence))
 
 		contextvector = None
 		imask = Variable(utils.sequence_mask(ilenghts))
@@ -120,14 +132,14 @@ if __name__=='__main__':
 					'encoder_configuration' : 'LSTMAttn',
 					'encoder_input_dim' : 4,
 					'encoder_dropout_rate' : 0.2,
-					'encoder_rnn_hdim' : 3,
+					'encoder_rnn_hdim' : 5,
 					'encoder_rnn_type' : 'LSTM',
 					'encoder_num_layers' : 1,
 					'encoderattn_projection_dim' : 2,
 					'encoderattn_query_dim' : 3
 				}
 
-	isequence = Variable(torch.randn(2,3,4))
+	isequence = Variable(torch.randn(2,3,4,3,3))
 	ilenghts = Variable(torch.LongTensor([2,3]))
 	
 	sequenceencoder = SequenceEncoder(dict_args)

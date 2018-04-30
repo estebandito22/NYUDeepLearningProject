@@ -29,7 +29,7 @@ class PreTrainedResnet(nn.Module):
 		for param in self.pretrained_model.parameters():
 			param.requires_grad = False
 
-	def forward(self, x):
+	'''def forward(self, x):
 		intermediate_features = []
 		for name, module in self.pretrained_model._modules.items():
 			if name=='fc':
@@ -37,7 +37,19 @@ class PreTrainedResnet(nn.Module):
 			x = module(x)
 			if name in self.intermediate_layers:
 				intermediate_features += [x]
-		return intermediate_features
+		return intermediate_features'''
+
+        def forward(self, x):
+                intermediate_features = []
+                for name, module in self.pretrained_model._modules.items():
+                        if name=='fc':
+                                x = x.squeeze().contiguous()
+                        x = module(x)
+                        if name in self.intermediate_layers:
+                                intermediate_features += [x]
+		features = intermediate_features[0]
+		features = nn.functional.avg_pool2d(features, 4, 3)
+                return features
 
 
 class PreTrainedAlexnet(nn.Module):
@@ -70,8 +82,8 @@ class Pixel():
 		self.files = files
 		self.pklfilepath = pklfilepath
 		self.video2vec = {}
-		#self.pretrained = PreTrainedResnet({'intermediate_layers':['layer4', 'fc']})
-		self.pretrained = PreTrainedAlexnet({'spatial_boolean' : True})
+		self.pretrained = PreTrainedResnet({'intermediate_layers':['layer4', 'fc']})
+		#self.pretrained = PreTrainedAlexnet({'spatial_boolean' : True})
 
 	def create(self):
 		for _, videoidspath, framesfolderpath in self.files:
@@ -115,7 +127,7 @@ class Pixel():
 
 if __name__ == '__main__':
 
-	pklfilepath = 'MSRVTT/Pixel/Alexnet25622/valvideo.pkl'
+	pklfilepath = 'MSRVTT/Pixel/Resnet51222/valvideo.pkl'
 	#pklfilepath = 'MSRVTT/valvideo.pkl'
 	pixel = Pixel([('Dummy', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')], pklfilepath)
 	#pixel = Pixel([('Dummy', 'MSRVTT/valvideo.json', 'MSRVTT/Frames')], pklfilepath)

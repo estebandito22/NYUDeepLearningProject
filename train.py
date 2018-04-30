@@ -34,7 +34,7 @@ def train():
 	data_parallel = False
 	frame_trunc_length = 45
 
-	train_batch_size = 16
+	train_batch_size = 32
 	train_num_workers = 0
 	train_pretrained = True
 	train_pklexist = True
@@ -42,24 +42,28 @@ def train():
 
 	print("Get train data...")
 	spatial = True
+	spatialpool = False
 	#train_pkl_file = 'MSRVTT/Pixel/Resnet1000/trainvideo.pkl'
 	if not spatial : train_pkl_file = 'MSRVTT/Pixel/Alexnet1000/trainvideo.pkl'
-	else: train_pkl_file = 'MSRVTT/Pixel/Alexnet25622/trainvideo.pkl'
+	else: train_pkl_file = 'MSRVTT/Pixel/Resnet51222/trainvideo.pkl'
+	
+	if spatialpool: train_pkl_file = 'MSRVTT/Pixel/Alexnet25622/trainvideo.pkl'
 	file_names = [('MSRVTT/captions.json', 'MSRVTT/trainvideo.json', 'MSRVTT/Frames')]
 	files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	train_pkl_path = os.path.join(cur_dir, input_dir, train_pkl_file)
 
-	train_dataloader, vocab, glove, train_data_size = loader.get_train_data(files, train_pkl_path, glove_filepath, glove_embdim, batch_size=train_batch_size, num_workers=train_num_workers, pretrained = train_pretrained, pklexist = train_pklexist, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length, spatial=spatial)
+	train_dataloader, vocab, glove, train_data_size = loader.get_train_data(files, train_pkl_path, glove_filepath, glove_embdim, batch_size=train_batch_size, num_workers=train_num_workers, pretrained = train_pretrained, pklexist = train_pklexist, data_parallel=data_parallel, frame_trunc_length=frame_trunc_length, spatial=spatial or spatialpool)
 
 	# print("Get validation data...")
 	# file_names = [('MSRVTT/captions.json', 'MSRVTT/valvideo.json.sample', 'MSRVTT/Frames')]
 	# files = [[os.path.join(cur_dir, input_dir, filetype) for filetype in file] for file in file_names]
 	# val_dataloader = loader.get_val_data(files, vocab, glove, eval_batch_size)
 
-	modelname = 'test1'
-
+	modelname = 'FinalDropoutResnet020203NoResLinear'
+	#modelname = 'FinalDropout000000Res'
 	if spatial: modeltype = 'stal'
 	else: modeltype = 'csal'
+
 	save_dir = 'models/{}/'.format(modelname + modeltype)
 	save_dir_path = os.path.join(cur_dir, save_dir)
 	if not os.path.exists(save_dir_path):
@@ -72,10 +76,12 @@ def train():
 	vocabfile = open(os.path.join(save_dir, 'vocab.pkl'), 'wb')
 	pickle.dump(vocab, vocabfile)
 	vocabfile.close()
+	
+	print(save_dir)
 
 	pretrained_wordvecs = glove.index2vec
 	#model_name = MP, MPAttn, LSTM, LSTMAttn for CSAL
-	hidden_dimension = 512 #glove_embdim
+	'''hidden_dimension = 256 #glove_embdim
 	dict_args = {
 					"intermediate_layers" : ['layer4', 'fc'],
 					"pretrained_feature_size" : 1000,
@@ -97,15 +103,16 @@ def train():
 					#
 					"decoder_rnn_input_dim" : glove_embdim + hidden_dimension,
 					#"decoder_rnn_input_dim" : glove_embdim,
+					"decoder_dropout_rate" : 0.2,
 					"decoder_rnn_hidden_dim" : hidden_dimension,
 					"decoder_tie_weights" : False,
 					"decoder_rnn_type" : 'LSTM',
 					"every_step": True,
 					#"every_step": False
-				}
+				}'''
 
 	#SpatialTemporal, LSTMTrackSpatial, LSTMTrackSpatialTemporal
-	'''hidden_dim = 256 #256
+	hidden_dim = 256 #256
 	dict_args = {
 
 					"word_embeddings" : pretrained_wordvecs,
@@ -114,22 +121,27 @@ def train():
 					"backprop_embeddings" : False,
 					"vocabulary_size" : len(pretrained_wordvecs),
 
-					"encoder_configuration" : 'SpatialTemporal',
-					"frame_channel_dim" : 256,
+					"encoder_configuration" : 'LSTMTrackSpatialTemporal',
+					"frame_channel_dim" : 512,
 					"frame_spatial_dim" : 2,
 					"encoder_rnn_type" : 'LSTM',
+					"frame_channelred_dim" : hidden_dim,
 					"encoder_rnn_hdim" : hidden_dim,
 					"encoder_dropout_rate" : 0.2,
 					"encoderattn_projection_dim" : hidden_dim/2,
 					"encoderattn_query_dim" : hidden_dim,
+					"encoder_linear" : True,
 
 					"decoder_rnn_word_dim" : glove_embdim,
 					#"decoder_rnn_input_dim" : hidden_dim + 256,
 					"decoder_rnn_input_dim" : hidden_dim + hidden_dim,
 					"decoder_rnn_hidden_dim" : hidden_dim,
 					"decoder_rnn_type" : 'LSTM',
+					"decoder_top_dropout_rate" : 0.3,
+					"decoder_bottom_dropout_rate" : 0.2,
+					"residual_connection" : False,
 					"every_step" : True
-				}'''
+				}
 	
 	if not spatial : csal = CSAL(dict_args)
 	else : csal = STAL(dict_args)
@@ -197,6 +209,7 @@ def train():
 			opt_time = time.time()
 			#######Report
 			if((i+1)%5 == 0):
+				#torch.cuda.empty_cache()
 				print('Epoch: [{0}/{1}], Step: [{2}/{3}], Test Loss: {4}'.format( \
 							epoch+1, num_epochs, i+1, train_data_size//train_batch_size, loss.data[0]))
 
@@ -204,7 +217,7 @@ def train():
 			#print("Load : {0}, Cuda : {1}, Model : {2}, Loss : {3}, Opt : {4}".format(start_time-load_time, load_time - cuda_time, cuda_time - model_time, model_time - loss_time, loss_time-opt_time))
 			start_time = time.time()
 
-		if(epoch%4 == 0): #After how many epochs
+		if(epoch%1 == 0): #After how many epochs
 			#Get Validation Loss to stop overriding
 			# val_loss, bleu = evaluator.evaluate(val_dataloader, csal, vocab)
 			# print("Validation Loss: {}\tValidation Scores: {}".format(val_loss, bleu))
